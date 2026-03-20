@@ -1,6 +1,9 @@
 #include <iostream>
 #include <DynamicVisibilityGraph/DynamicRVG.h>
 
+using namespace RotationalVisibilityGraph;
+using namespace Utils;
+
 typedef double T;
 DECL_CGAL_CARTESIAN_TYPES_T
 DECL_CGAL_POLYGON_TYPES_T
