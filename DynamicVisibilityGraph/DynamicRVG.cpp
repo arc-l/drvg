@@ -42,9 +42,13 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
     return false;
 } // plan a path from start to goal using the visibility graph
     
-template class DynamicRVG<double>;
-template class DynamicRVG<float>;
-}
 //TODO: We can have several visualization functions to help us debugging.
 // For example, we can visualize the _visibleAreaInMap, the _explorationPath, the _shortestPath, and the merged visibility graph.
 // We can also visualize the RVG built after every step
+template <typename T>
+void DynamicRVG<T>::drawVisibleArea() const { // visualize the _visibleAreaInMap
+    // Implementation for visualizing the visible area
+}
+template class DynamicRVG<double>;
+template class DynamicRVG<float>;
+}

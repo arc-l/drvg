@@ -51,6 +51,9 @@ public:
     // For example, we can visualize the _visibleAreaInMap, the _explorationPath, the _shortestPath, and the merged visibility graph.
     // We can also visualize the RVG built after every step
 
+    //visualization functions
+    void drawVisibleArea() const; // visualize the _visibleAreaInMap
+
 private:
     Polygon<T> _visibleAreaInMap;
     Graph<T> _graph;

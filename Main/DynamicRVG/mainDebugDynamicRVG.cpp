@@ -10,7 +10,7 @@ DECL_CGAL_POLYGON_TYPES_T
 DECL_CGAL_VISIBILITY_GRAPH_TYPES_T
 
 int main() {
-    std::cout << "Debugging DynamicRVG..." << std::endl;
+    println("Testing DynamicRVG...");
     Polygon<T> robot =
         Polygon<T>(
             std::vector<Vertex<T>>{
@@ -50,6 +50,12 @@ int main() {
     Vertex<T> goal(8, 0, PI/2., PI/2., PI/2);
     std::shared_ptr<Vertex<T>> startPtr = std::make_shared<Vertex<T>>(start);
     std::shared_ptr<Vertex<T>> goalPtr = std::make_shared<Vertex<T>>(goal);
+
+    // We can test the scanVisibleArea, buildVisibilityGraph, and mergeVisibilityGraph functions separately before testing the plan function
+    //test scanVisibleArea
+    DynamicRVG<T> dynamicRVG = DynamicRVG<T>(robot, map, obstacles, resolutions[0], 16);
+    dynamicRVG.scanVisibleArea();
+
     for (int resolution : resolutions) {
         DynamicRVG<T> dynamicRVG = DynamicRVG<T>(robot, map, obstacles, resolution, 16);
         dynamicRVG.plan(start, goal);
