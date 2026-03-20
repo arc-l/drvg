@@ -45,3 +45,5 @@ scripts/manim_vis/media/
 rvg.egg-info/
 Configs-backup
 
+build/
+.venv/
