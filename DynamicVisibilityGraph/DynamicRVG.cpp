@@ -1,25 +1,31 @@
 #include "DynamicRVG.h"
+namespace RotationalVisibilityGraph {
+    
+template <typename T>
 void DynamicRVG<T>::scanVisibleArea() // scan the environment at the current robot location and then update the _visibleAreaInMap
 {
     
 }
 
-VisibilityGraph DynamicRVG<T>::buildVisibilityGraph() // build the visibility graph based on the _visibleAreaInMap
+template <typename T>
+VisibilityGraph<T> DynamicRVG<T>::buildVisibilityGraph() // build the visibility graph based on the _visibleAreaInMap
 {
 
 }
 
-void DynamicRVG<T>::mergeVisibilityGraph(const VisibilityGraph &newGraph) // merge the new visibility graph with the existing one  
+template <typename T>
+void DynamicRVG<T>::mergeVisibilityGraph(const VisibilityGraph<T> &newGraph) // merge the new visibility graph with the existing one  
 {
 
 }
 
-bool DynamicRVG<T>::plan(const Point<T> &start, const Point<T> &goal)
+template <typename T>
+bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
 {
     /*
         while not find solution
             scanVisibleArea();
-            VisibilityGraph newGraph = buildVisibilityGraph();
+            VisibilityGraph<T> newGraph = buildVisibilityGraph();
             mergeVisibilityGraph(newGraph);
             bool goalLegal = _visibilityGraph.addVertex(std::make_shared<Vertex<T>>(goal));
             if (iter==1 && goalLegal){
@@ -33,8 +39,12 @@ bool DynamicRVG<T>::plan(const Point<T> &start, const Point<T> &goal)
             Later we can use A* for this. For example, cost = cost to start + estimated distance to goal.
             })
         */ 
+    return false;
 } // plan a path from start to goal using the visibility graph
     
-//TODO: We can have several visualizatio functions to help us debugging.
+template class DynamicRVG<double>;
+template class DynamicRVG<float>;
+}
+//TODO: We can have several visualization functions to help us debugging.
 // For example, we can visualize the _visibleAreaInMap, the _explorationPath, the _shortestPath, and the merged visibility graph.
 // We can also visualize the RVG built after every step
