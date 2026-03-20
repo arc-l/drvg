@@ -121,7 +121,6 @@ MACRO(SEARCH_SOURCE NAME DIRPRJ)
 ENDMACRO(SEARCH_SOURCE)
 
 SEARCH_SOURCE(VisibilityGraph VisibilityGraph)
-SEARCH_SOURCE(DynamicRVG DynamicVisibilityGraph) #dynamic RVG
 SEARCH_SOURCE(Utils Utils)
 
 IF (DEFINED OMPL_ENABLE)
@@ -136,7 +135,6 @@ ENDIF()
 ADD_LIBRARY(RotationalVisibilityGraph SHARED
         ${sourceVisibilityGraph} ${headerVisibilityGraph}
         ${sourceUtils} ${headerUtils}
-        ${sourceDynamicRVG} ${headerDynamicRVG} #dynamic RVG
         ${sourceOMPL} ${headerOMPL}
         Python/utils.h
 )
@@ -244,7 +242,3 @@ IF (GENERAL_DEBUG AND NOT PYTHON_BINDINGS)
     ADD_EXE(mainDebugAVX)
     ADD_EXE(mainDebugAVXPolygonChecking)
 ENDIF (GENERAL_DEBUG AND NOT PYTHON_BINDINGS)
-
-#dynamic rvg
-SET(FOLDER DynamicRVG)
-ADD_EXE(mainDebugDynamicRVG)
