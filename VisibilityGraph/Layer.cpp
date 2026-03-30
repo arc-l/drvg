@@ -6,6 +6,7 @@
 #include <CGAL/offset_polygon_2.h>
 #include <CGAL/draw_polygon_with_holes_2.h>
 #include <VisibilityGraph/Utils.h>
+#include <Utils/Utils.h>
 #include <unordered_map>
 #include <climits>
 #include <unistd.h>
@@ -243,18 +244,18 @@ void Layer<T>::_initRobotBBox(const Polygon<T> &_robot) {
 
 template<typename T>
 void Layer<T>::_shrinkBorder(const Polygon<T> &border) {
-// #define DEBUG
+#define DEBUG
   Polygon_2 borderCGAL = border.getCounterClockWise();
   CGAL::complement(borderCGAL, _complementBorder);
   _complementBorder = CGAL::minkowski_sum_2(_complementBorder, _robotBBoxInverted.getPolygon());
-  ASSERT_MSG(_complementBorder.number_of_holes() == 1, "The border should have only one hole")
-  Polygon_2 hole = *_complementBorder.holes_begin();
-  _shrunkBorder = Polygon<T>(hole);
 #ifdef DEBUG
   std::string pythonScript;
   PYTHON_IMPORTS(pythonScript)
   pythonScript+= border.draw("obs");
-  pythonScript+=_shrunkBorder.draw("start");
+  for(const auto &hole : _complementBorder.holes()){
+    Polygon<T> holePolygon = Polygon<T>(hole);
+    pythonScript+= holePolygon.draw("hole");
+  }
   pythonScript+=_robotBBoxInverted.draw("goal");
   pythonScript += "plt.axis('equal')\n";
   pythonScript += "plt.show()\n";
@@ -262,16 +263,11 @@ void Layer<T>::_shrinkBorder(const Polygon<T> &border) {
   std::ofstream pythonFile(pythonSavePath);
   pythonFile << pythonScript;
   pythonFile.close();
-#ifdef PYTHON_EXECUTABLE
-  std::string command = std::string(PYTHON_EXECUTABLE) + " " + pythonSavePath;
-#else
-  std::string command = "python3 " + pythonSavePath;
+  RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(pythonSavePath);
 #endif
-  int status = system(command.c_str());
-  if(status != 0) throw std::runtime_error("Failed to run python script");
-  status = system("rm shrinkedBorder.py");
-  if(status != 0) throw std::runtime_error("Failed to remove the script");
-#endif
+  ASSERT_MSG(_complementBorder.number_of_holes() == 1, "The border should have only one hole")
+  Polygon_2 hole = *_complementBorder.holes_begin();
+  _shrunkBorder = Polygon<T>(hole);
 }
 
 template<typename T>

@@ -17,7 +17,7 @@ DECL_CGAL_VISIBILITY_GRAPH_TYPES_T
 template <typename U>
 struct DebugDynamicRVG : public DynamicRVG<U> {
   using DynamicRVG<U>::DynamicRVG;
-  void setGoalForDebug(const Vertex<U> &goal) { this->_goal = goal; }
+  void setGoalForDebug(const Vertex<U> &goal) { this->setGoal(goal); }
 };
 
 struct Scene {
@@ -120,22 +120,20 @@ int main() {
     dynamicRVG.moverobotdebug(scene.start);
     dynamicRVG.setGoalForDebug(scene.goal);
 
-    dynamicRVG.scanVisibleArea();
-    dynamicRVG.mergeVisibleArea();
+    dynamicRVG.scanVisibleArea(scene.start);
 
     VisibilityGraph<T> iterationVG = dynamicRVG.buildVisibilityGraph();
-    dynamicRVG._graph = iterationVG.getGraph();
+    dynamicRVG.setGraph(iterationVG.getGraph());
     dynamicRVG.calculateTemporaryGoal();
 
     iterationVG = dynamicRVG.buildVisibilityGraph();
-    dynamicRVG._graph = iterationVG.getGraph();
+    dynamicRVG.setGraph(iterationVG.getGraph());
     dynamicRVG.calculateShortestPath();
     dynamicRVG.drawIteration(scene.name);
 
     const auto scriptPath = outputDir / ("drawIteration_" + scene.name + ".py");
     expect(std::filesystem::exists(scriptPath), "drawIteration writes script for " + scene.name);
-    expect(dynamicRVG._traversedAndVisibleAreaBorder.size() > 0, "mergeVisibleArea creates border for " + scene.name);
-    expect(dynamicRVG._graph.size() > 0, "buildVisibilityGraph creates graph for " + scene.name);
+    expect(dynamicRVG.getGraph().size() > 0, "buildVisibilityGraph creates graph for " + scene.name);
   }
 #else
   Utils::print("Single-iteration generation disabled. Uncomment WRITE_DYNAMIC_RVG_SINGLE_ITERATION in mainDebugSingleIteration.cpp to enable it.");

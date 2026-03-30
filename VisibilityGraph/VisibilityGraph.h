@@ -67,7 +67,6 @@ class VisibilityGraph {
   const Graph<T> &getGraph() const;
   bool addVertex(std::shared_ptr<Vertex<T>> vertex);
   void _addStartAndGoal(std::shared_ptr<Vertex<T>> start, std::shared_ptr<Vertex<T>> goal);
-  
 
  protected:
   bool _fineApprox;
@@ -90,8 +89,8 @@ class VisibilityGraph {
   [[nodiscard]] std::string _drawSetup() const;
 
  private:
-  int _resolution;
   bool _optimal;
+  int _resolution;
   std::vector<std::unordered_set<TwoTuple, TwoTupleHash>> _layerVertices;
   std::vector<std::vector<std::pair<std::shared_ptr<Vertex<T>>, std::shared_ptr<Vertex<T>>>>> _edgeLayersForward, _edgeLayersBackward;
   void _buildLayers();

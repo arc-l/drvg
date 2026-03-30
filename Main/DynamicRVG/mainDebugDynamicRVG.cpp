@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <Utils/Utils.h>
 
 // Uncomment to generate random DynamicRVG full-path scripts in build/dynamicrvgdebug.
 #define WRITE_DYNAMIC_RVG_RANDOM_SCENES
@@ -32,7 +33,7 @@ void expect(bool ok, const std::string &name) {
 
 int main() {
   constexpr int resolution = 36;
-  constexpr int numThreads = 16;
+  constexpr int numThreads = 1;
   constexpr int targetSuccessfulScenes = 3;
   constexpr int maxAttempts = 20;
   constexpr int mapSize = 30;
@@ -65,8 +66,9 @@ int main() {
 
     const auto scriptPath = outputDir / ("drawFullPathAndEndGraph_" + sceneName + ".py");
     expect(std::filesystem::exists(scriptPath), "drawFullPathAndEndGraph writes script for " + sceneName);
-    expect(!dynamicRVG._explorationPath.empty(), "plan populates exploration path for " + sceneName);
-    expect(dynamicRVG._graph.size() > 0, "plan leaves final graph for " + sceneName);
+    expect(!dynamicRVG.getExplorationPath().empty(), "plan populates exploration path for " + sceneName);
+    expect(dynamicRVG.getGraph().size() > 0, "plan leaves final graph for " + sceneName);
+    RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<double>(scriptPath.string());
   }
 
   expect(successes == targetSuccessfulScenes, "random DynamicRVG generation produced enough successful scenes");

@@ -9,27 +9,18 @@
 namespace RotationalVisibilityGraph {
 
 template <typename T>
-class DynamicRVG : public VisibilityGraph<T> {
+class DynamicRVG{
 public:
-    /* TODO:
-     * Constructor: add robot, border, obstacles resolution, number of threads.
-    */
     DynamicRVG(
         const Polygon<T> &robot,
         const Polygon<T> &border, 
         const std::vector<Polygon<T>> &obstacles, 
         const T &resolution, 
         const int &numThreads
-    )
-    : VisibilityGraph<T>(robot, border, obstacles, resolution, false, numThreads) {
-        this->_start = this->_robot.getCentroid();
-        this->_start.setBounds(0, 0);
-        this->_start.setTheta(0);
-    };
+    ): _robot(robot), _border(border), _obstacles(obstacles), _resolution(resolution), _numThreads(numThreads){}
     ~DynamicRVG() = default;
 
-    const Polygon<T> &scanVisibleArea(); // scan the environment at the current robot location and return the visible polygon
-    void mergeVisibleArea(); // merge the new visible area with the existing one
+    const Polygon<T> &scanVisibleArea(const Vertex<T> & currentLocation); // scan the environment at the current robot location and return the visible polygon
 
     void calculateTemporaryGoal(); // calculate a temporary goal for the robot to move to when the real goal is not visible. For now, we can simply use the vertex in the graph that is closest to the real goal and not yet explored. Later we can use A* for this. For example, cost = cost to start + estimated distance to goal.
     VisibilityGraph<T> buildVisibilityGraph(); // build the visibility graph based on the current visible and traversed area. We will use our temporary goal as the goal when building the visibility graph. This is because we want to find a path to the temporary goal first, and then move to the temporary goal, and then repeat the process until we can see the real goal and move to the real goal directly.
@@ -67,17 +58,25 @@ public:
 
     //testing functions
     void moverobotdebug(const Vertex<T> &nextLocation); // move the robot to the next location
+    const std::vector<std::shared_ptr<Vertex<T>>>& getExplorationPath() const; 
+    const std::vector<std::shared_ptr<Vertex<T>>>& getShortestPath() const; 
+    const Graph<T> & getGraph() const;
+    void setGoal(const Vertex<T>& goal);
+    void setGraph(const Graph<T>& graph);
 
-    Polygon<T> _visibleAreaInMap;
+private:
+    Polygon<T> _robot, _border, _realRobot;
+    std::vector<Polygon<T>> _obstacles;
+    int _resolution;
+    int _numThreads;
     Graph<T> _graph;
-    Vertex<T> _temporaryGoal; // the temporary goal for the robot to move to when the real goal is not visible. For now, we can simply use the vertex in the graph that is closest to the real goal and not yet explored. Later we can use A* for this. For example, cost = cost to start + estimated distance to goal.
+    Polygon<T> _visibleAreaInMap;
     bool _hasTemporaryGoal = false;
+    Vertex<T> _start, _goal;
+    Vertex<T> _temporaryGoal; // the temporary goal for the robot to move to when the real goal is not visible. For now, we can simply use the vertex in the graph that is closest to the real goal and not yet explored. Later we can use A* for this. For example, cost = cost to start + estimated distance to goal.
     std::unordered_set<std::shared_ptr<Vertex<T>>, typename Vertex<T>::SharedPtrVertexHash, typename Vertex<T>::SharedPtrVertexEqual> _exploredVertices;
     std::vector<std::shared_ptr<Vertex<T>>> _explorationPath;
     std::vector<std::shared_ptr<Vertex<T>>> _shortestPath; // The shortest path from the start and goal based the current RVG, which is gradually built.
-
-    Polygon<T> _traversedAndVisibleAreaBorder; // the border in the traversed and visible area, which is gradually built.
-    std::vector<Polygon<T>> _traversedAndVisibleAreaObstacles; // the obstacles in the traversed and visible area, which is gradually built.
 };
 
 }

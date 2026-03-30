@@ -118,8 +118,8 @@ int main() {
 
     const auto scriptPath = outputDir / ("drawFullPathAndEndGraph_" + scene.name + ".py");
     expect(std::filesystem::exists(scriptPath), "drawFullPathAndEndGraph writes script for " + scene.name);
-    expect(!dynamicRVG._explorationPath.empty(), "plan populates exploration path for " + scene.name);
-    expect(dynamicRVG._graph.size() > 0, "plan leaves final graph for " + scene.name);
+    expect(!dynamicRVG.getExplorationPath().empty(), "plan populates exploration path for " + scene.name);
+    expect(dynamicRVG.getGraph().size() > 0, "plan leaves final graph for " + scene.name);
   }
 #else
   Utils::print("Full-path generation disabled. Uncomment WRITE_DYNAMIC_RVG_FULL_PATH in mainDebugFullPath.cpp to enable it.");

@@ -1,19 +1,13 @@
 #include "DynamicRVG.h"
 #include <VisibilityGraph/Utils.h>
 #include <filesystem>
+#include <Utils/Utils.h>
 
 namespace RotationalVisibilityGraph {
     
 template <typename T>
-const Polygon<T> &DynamicRVG<T>::scanVisibleArea() // scan the environment at the current robot location and then update the _visibleAreaInMap
+const Polygon<T> &DynamicRVG<T>::scanVisibleArea(const Vertex<T> & currentLocation) // scan the environment at the current robot location and then update the _visibleAreaInMap
 {
-    Vertex<T> currentLocation = this->_start;
-    if (!currentLocation.hasTheta()) {
-        currentLocation = this->_robot.getCentroid();
-        currentLocation.setBounds(0, 0);
-        currentLocation.setTheta(0);
-    }
-
     std::vector<Polygon_2> map;
     map.reserve(this->_obstacles.size() + 1);
     for (const auto &obs : this->_obstacles) map.push_back(obs.getPolygon());
@@ -41,41 +35,6 @@ const Polygon<T> &DynamicRVG<T>::scanVisibleArea() // scan the environment at th
     }
     _visibleAreaInMap = Polygon<T>(boundary, false);
     return _visibleAreaInMap;
-}
-
-template <typename T>
-void DynamicRVG<T>::mergeVisibleArea() // merge the new visible area with the existing one
-{
-    if (!_visibleAreaInMap.size()) {
-        return;
-    }
-
-    Polygon_set_2 traversedAndVisibleArea;
-    if (_traversedAndVisibleAreaBorder.size()) {
-        traversedAndVisibleArea.insert(_traversedAndVisibleAreaBorder.getPolygon());
-        for (const auto &obstacle : _traversedAndVisibleAreaObstacles) {
-            traversedAndVisibleArea.difference(obstacle.getPolygon());
-        }
-    }
-
-    traversedAndVisibleArea.join(_visibleAreaInMap.getPolygon());
-
-    _traversedAndVisibleAreaBorder = this->_border;
-    Polygon_set_2 unknownArea;
-    unknownArea.insert(this->_border.getPolygon());
-    unknownArea.difference(traversedAndVisibleArea);
-
-    std::vector<Polygon_with_holes_2> unknownPolygons;
-    unknownArea.polygons_with_holes(std::back_inserter(unknownPolygons));
-    _traversedAndVisibleAreaObstacles.clear();
-    for (const auto &unknownPolygon : unknownPolygons) {
-        ASSERT_MSG(!unknownPolygon.has_holes(), "Unknown area obstacle should not have holes");
-        Polygon_2 obstacle = unknownPolygon.outer_boundary();
-        if (obstacle.is_clockwise_oriented()) {
-            obstacle.reverse_orientation();
-        }
-        _traversedAndVisibleAreaObstacles.emplace_back(obstacle);
-    }
 }
 
 template <typename T>
@@ -121,20 +80,20 @@ void DynamicRVG<T>::calculateTemporaryGoal()
 template <typename T>
 VisibilityGraph<T> DynamicRVG<T>::buildVisibilityGraph()
 {
-    const int resolution = std::max(1, static_cast<int>(this->getLayers().size()));
-    ASSERT_MSG(_traversedAndVisibleAreaBorder.size() > 0, "Traversed and visible area border is empty");
     VisibilityGraph<T> visibilityGraph(
         this->_robot,
-        this->_border,
-        _traversedAndVisibleAreaObstacles,
-        resolution,
+        this->_visibleAreaInMap,
+        {},
+        this->_resolution,
         false,
         this->_numThreads
     );
 
-    visibilityGraph.addVertex(std::make_shared<Vertex<T>>(this->_start));
+    bool startAdded = visibilityGraph.addVertex(std::make_shared<Vertex<T>>(this->_start));
+    std::cout << "Start vertex " << this->_start << (startAdded ? " added to " : " not added to ") << "visibility graph." << std::endl;
     if (_hasTemporaryGoal) {
-        visibilityGraph.addVertex(std::make_shared<Vertex<T>>(_temporaryGoal));
+        bool goalAdded = visibilityGraph.addVertex(std::make_shared<Vertex<T>>(_temporaryGoal));
+        std::cout << "Temporary goal vertex " << _temporaryGoal << (goalAdded ? " added to " : " not added to ") << "visibility graph." << std::endl;
     }
     return visibilityGraph;
 }
@@ -180,6 +139,7 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
 {
     this->_start = start;
     this->_goal = goal;
+    //TODO: No need to set default values for the start and the goal. If the user didn't provide these values, just throw an error.
     if (!this->_start.hasTheta()) {
         this->_start.setBounds(0, 0);
         this->_start.setTheta(0);
@@ -192,8 +152,6 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
     _visibleAreaInMap = Polygon<T>();
     _temporaryGoal = Vertex<T>();
     _hasTemporaryGoal = false;
-    _traversedAndVisibleAreaBorder = Polygon<T>();
-    _traversedAndVisibleAreaObstacles.clear();
     _graph = Graph<T>();
     _exploredVertices.clear();
     _explorationPath.clear();
@@ -213,15 +171,14 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
         _explorationPath = fullExplorationPath;
         _shortestPath = fullExplorationPath;
         ++failureDrawCounter;
-        drawIteration(
-            "failed_" + std::to_string(failureDrawCounter) + "_iter_" + std::to_string(iteration + 1) + "_" + reason);
+        std::string pathToScript = "failed_" + std::to_string(failureDrawCounter) + "_iter_" + std::to_string(iteration + 1) + "_" + reason;
+        drawIteration(pathToScript);
+        RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(pathToScript);
     };
 
     const int maxIterations = std::max(1, static_cast<int>(this->_obstacles.size()) * 4 + 10);
     for (int iteration = 0; iteration < maxIterations; ++iteration) {
-        scanVisibleArea();
-        mergeVisibleArea();
-
+        scanVisibleArea(_start);
         if (this->_start.dist(this->_goal) < 1e-5) {
             if (fullExplorationPath.empty()) {
                 fullExplorationPath.push_back(std::make_shared<Vertex<T>>(this->_start));
@@ -240,9 +197,18 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
             return false;
         }
 
-        iterationVG = buildVisibilityGraph();
-        _graph = iterationVG.getGraph();
-        calculateShortestPath();
+        // iterationVG = buildVisibilityGraph();
+        // _graph = iterationVG.getGraph();
+        // calculateShortestPath();
+        iterationVG._addStartAndGoal(std::make_shared<Vertex<T>>(this->_start), std::make_shared<Vertex<T>>(_temporaryGoal));
+        const auto shortestPath = iterationVG.shortestPath(
+            std::make_shared<Vertex<T>>(this->_start),
+            std::make_shared<Vertex<T>>(_temporaryGoal)
+        );
+        _shortestPath.clear();
+        for(const auto& vertex: shortestPath) {
+            _shortestPath.push_back(std::make_shared<Vertex<T>>(vertex));
+        }
         if (_shortestPath.empty()) {
             Utils::print("No path found in this iteration, stopping planning.");
             drawFailureState(iteration, "no_path");
@@ -392,10 +358,6 @@ void DynamicRVG<T>::drawIteration(const std::string &name) const
     for (const auto &obs : this->_obstacles) {
         appendPolygon(obs, "darkcyan", "lightcyan", 0.8, 1.0);
     }
-    appendPolygon(_traversedAndVisibleAreaBorder, "forestgreen", "palegreen", 0.20, 1.5);
-    for (const auto &obs : _traversedAndVisibleAreaObstacles) {
-        appendPolygon(obs, "tab:red", "mistyrose", 0.8, 1.0);
-    }
     appendPolygon(_visibleAreaInMap, "goldenrod", "gold", 0.35, 1.5);
 
     pythonScript += _graph.draw();
@@ -494,9 +456,6 @@ void DynamicRVG<T>::drawFullPathAndEndGraph(const std::string &name) const
     };
 
     appendPolygon(this->_border, "dimgray", "", 0.0, 1.0);
-    for (const auto &obs : _traversedAndVisibleAreaObstacles) {
-        appendPolygon(obs, "tab:red", "mistyrose", 0.8, 1.0);
-    }
 
     pythonScript += _graph.draw();
 
@@ -539,6 +498,31 @@ void DynamicRVG<T>::drawFullPathAndEndGraph(const std::string &name) const
     pythonScript += "plt.savefig('" + imagePath + "', dpi=500, bbox_inches='tight')\n";
     Utils::writeStringToFile<T>(pythonScript, scriptPath);
     Utils::print("Wrote", scriptPath);
+}
+
+template<typename T>
+const std::vector<std::shared_ptr<Vertex<T>>>& DynamicRVG<T>::getExplorationPath() const{
+    return _explorationPath;
+}
+
+template<typename T>
+const std::vector<std::shared_ptr<Vertex<T>>>& DynamicRVG<T>::getShortestPath() const{
+    return _shortestPath;
+}
+
+template<typename T>
+const Graph<T> & DynamicRVG<T>::getGraph() const{
+    return _graph;
+}
+
+template<typename T>
+void DynamicRVG<T>::setGoal(const Vertex<T> &goal){
+    _goal = goal;    
+}
+
+template<typename T>
+void DynamicRVG<T>::setGraph(const Graph<T> &graph){
+    _graph = graph;
 }
 
 template class DynamicRVG<double>;
