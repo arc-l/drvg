@@ -247,4 +247,6 @@ ENDIF (GENERAL_DEBUG AND NOT PYTHON_BINDINGS)
 
 #dynamic rvg
 SET(FOLDER DynamicRVG)
-ADD_EXE(mainDebugDynamicRVG)
+ADD_EXE(mainDebugScanVisibleArea)
+ADD_EXE(mainDebugSingleIteration)
+ADD_EXE(mainDebugFullPath)
