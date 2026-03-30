@@ -208,6 +208,14 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
             fullExplorationPath.push_back(std::make_shared<Vertex<T>>(*segment[i]));
         }
     };
+    size_t failureDrawCounter = 0;
+    const auto drawFailureState = [&](int iteration, const std::string &reason) {
+        _explorationPath = fullExplorationPath;
+        _shortestPath = fullExplorationPath;
+        ++failureDrawCounter;
+        drawIteration(
+            "failed_" + std::to_string(failureDrawCounter) + "_iter_" + std::to_string(iteration + 1) + "_" + reason);
+    };
 
     const int maxIterations = std::max(1, static_cast<int>(this->_obstacles.size()) * 4 + 10);
     for (int iteration = 0; iteration < maxIterations; ++iteration) {
@@ -228,6 +236,7 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
         calculateTemporaryGoal();
         if (!_hasTemporaryGoal) {
             Utils::print("No temporary goal found in this iteration, stopping planning.");
+            drawFailureState(iteration, "no_temporary_goal");
             return false;
         }
 
@@ -236,6 +245,7 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
         calculateShortestPath();
         if (_shortestPath.empty()) {
             Utils::print("No path found in this iteration, stopping planning.");
+            drawFailureState(iteration, "no_path");
             return false;
         }
 
@@ -252,6 +262,7 @@ bool DynamicRVG<T>::plan(const Vertex<T> &start, const Vertex<T> &goal)
     }
 
     Utils::print("Planning did not converge within the iteration limit.");
+    drawFailureState(maxIterations - 1, "iteration_limit");
     return false;
 } // plan a path from start to goal using the visibility graph
 

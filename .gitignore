@@ -49,3 +49,5 @@ Configs-backup
 
 build/
 .venv/
+
+.codex
