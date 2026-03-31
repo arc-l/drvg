@@ -244,7 +244,7 @@ void Layer<T>::_initRobotBBox(const Polygon<T> &_robot) {
 
 template<typename T>
 void Layer<T>::_shrinkBorder(const Polygon<T> &border) {
-#define DEBUG
+// #define DEBUG
   Polygon_2 borderCGAL = border.getCounterClockWise();
   CGAL::complement(borderCGAL, _complementBorder);
   _complementBorder = CGAL::minkowski_sum_2(_complementBorder, _robotBBoxInverted.getPolygon());
