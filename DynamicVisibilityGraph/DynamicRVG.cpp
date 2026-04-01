@@ -172,6 +172,11 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
         const std::string scriptPath = drawIteration(name, temporaryGoal);
         RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(scriptPath);
     };
+    const auto drawCurrentIteration = [&](int iteration, const std::shared_ptr<Vertex<T>> &temporaryGoal = nullptr) {
+        std::string name = "iter_" + std::to_string(iteration + 1);
+        const std::string scriptPath = drawIteration(name, temporaryGoal);
+        RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(scriptPath);
+    };
 
     const int maxIterations = std::max(1, static_cast<int>(this->_obstacles.size()) * 4 + 10);
     auto tempStart = this->_start;
@@ -207,6 +212,7 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
                 const auto vertexPtr = std::make_shared<Vertex<T>>(vertex);
                 _shortestPath.push_back(vertexPtr);
             }
+            drawCurrentIteration(iteration, this->_goal);
             return true;
         }
         tempGoal = calculateTemporaryGoal();
@@ -230,6 +236,7 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
 
         appendSegment(shortestPath);
         _explorationPath = fullExplorationPath;
+        drawCurrentIteration(iteration, tempGoal);
         _exploredVertices.insert(tempGoal);
         tempStart = tempGoal;
     }
