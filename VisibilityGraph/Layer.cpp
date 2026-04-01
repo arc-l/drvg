@@ -265,9 +265,11 @@ void Layer<T>::_shrinkBorder(const Polygon<T> &border) {
   pythonFile.close();
   RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(pythonSavePath);
 #endif
-  ASSERT_MSG(_complementBorder.number_of_holes() == 1, "The border should have only one hole")
-  Polygon_2 hole = *_complementBorder.holes_begin();
-  _shrunkBorder = Polygon<T>(hole);
+  // ASSERT_MSG(_complementBorder.number_of_holes() == 1, "The border should have only one hole")
+  for (const auto &hole: _complementBorder.holes()) {
+    _shrunkBorders.push_back(Polygon<T>(hole));
+  }
+  _shrunkBorder = Polygon<T>(*_complementBorder.holes_begin());
 }
 
 template<typename T>

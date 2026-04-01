@@ -361,6 +361,10 @@ void VisibilityGraph<T>::_connectLayersParallelizedVertices() {
 
 template <typename T>
 bool VisibilityGraph<T>::addVertex(std::shared_ptr<Vertex<T>> vertex) {
+  if (_graph.getVertices().find(vertex) != _graph.getVertices().end()) {
+    return true;
+  }
+
   std::vector<bool> legalVec(_layers.size(), false);
   std::vector<Polygon_2> visibleAreaVec(_layers.size());
   std::vector<std::shared_ptr<Vertex<T>>> vertexInLayerVec(_layers.size(), nullptr);

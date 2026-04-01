@@ -5,13 +5,15 @@
             "name": "mainRVGConfigRun",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainRVGConfigRun",
             "args": [
-                "../Configs/corridor.xml",
+                // "../Configs/corridor.xml",
+                "../Configs/corridor_star.xml",
                 // "../scripts/manim_vis/manimConfig.xml",
                 "72",
-                "24",
+                "1",
                 "../Results/corridor.gif"
             ],
             "stopAtEntry": false,
@@ -42,6 +44,7 @@
             "name": "mainOMPLConfigRun",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainOMPLConfigRun",
             "args": [
@@ -79,6 +82,7 @@
             "name": "mainDrawMap",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDrawMap",
             "args": [
@@ -113,6 +117,7 @@
             "name": "mainDebugMinkowskiSum3",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugMinkowskiSum3",
             "args": [],
@@ -144,6 +149,7 @@
             "name": "mainDebugMinkowskiSum4",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugMinkowskiSum4",
             "args": [],
@@ -175,6 +181,7 @@
             "name": "mainDebugMinkowskiSum5",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugMinkowskiSum5",
             "args": [],
@@ -206,6 +213,7 @@
             "name": "mainDebugLayer",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugLayer",
             "args": [
@@ -240,6 +248,7 @@
             "name": "mainMapGeneration",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainMapGeneration",
             "args": [],
@@ -271,6 +280,7 @@
             "name": "mainDebugConvexDecomposition",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugConvexDecomposition",
             "args": [],
@@ -302,6 +312,7 @@
             "name": "mainWeights",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainWeights",
             "args": [],
@@ -333,6 +344,7 @@
             "name": "mainDrawConvergence",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDrawConvergence",
             "args": [
@@ -369,6 +381,7 @@
             "name": "mainDebugAVX",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugAVX",
             "args": [
@@ -401,6 +414,7 @@
             "name": "mainDebugAVXPolygonChecking",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugAVXPolygonChecking",
             "args": [
@@ -433,6 +447,7 @@
             "name": "mainDebugGraph",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugGraph",
             "args": [
@@ -465,6 +480,7 @@
             "name": "mainDebugVerticalDecomposition",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugVerticalDecomposition",
             "args": [
@@ -498,6 +514,7 @@
             "name": "mainSBRVGConfigRun",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainSBRVGConfigRun",
             "args": [
@@ -535,6 +552,7 @@
             "name": "mainDebugMaximumInscribedCircle",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugMaximumInscribedCircle",
             "args": [
@@ -568,9 +586,16 @@
             "name": "mainDebugDynamicRVG",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "CMake: build",
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainDebugDynamicRVG",
-            "args": [],
+            "args": [
+                // "../Configs/corridor_star.xml",
+                "../Configs/mapfixedStartAndGoalSmall0.xml",
+                "18",
+                "24",
+                "../Results/mapfixedStartAndGoalSmall0.png"
+            ],
             "stopAtEntry": false,
             "cwd": "${command:cmake.buildDirectory}",
             "environment": [

@@ -17,7 +17,7 @@ DECL_CGAL_VISIBILITY_GRAPH_TYPES_T
 template <typename U>
 struct DebugDynamicRVG : public DynamicRVG<U> {
   using DynamicRVG<U>::DynamicRVG;
-  void setGoalForDebug(const Vertex<U> &goal) { this->setGoal(goal); }
+  void setGoalForDebug(const std::shared_ptr<Vertex<U>> &goal) { this->setGoal(goal); }
 };
 
 struct Scene {
@@ -118,18 +118,18 @@ int main() {
   for (const auto &scene : scenes) {
     DebugDynamicRVG<T> dynamicRVG(scene.robot, scene.map, scene.obstacles, resolution, numThreads);
     dynamicRVG.moverobotdebug(scene.start);
-    dynamicRVG.setGoalForDebug(scene.goal);
+    dynamicRVG.setGoalForDebug(std::make_shared<Vertex<T>>(scene.goal));
 
     dynamicRVG.scanVisibleArea(scene.start);
 
     VisibilityGraph<T> iterationVG = dynamicRVG.buildVisibilityGraph();
     dynamicRVG.setGraph(iterationVG.getGraph());
-    dynamicRVG.calculateTemporaryGoal();
+    const std::shared_ptr<Vertex<T>> temporaryGoal = dynamicRVG.calculateTemporaryGoal();
 
     iterationVG = dynamicRVG.buildVisibilityGraph();
     dynamicRVG.setGraph(iterationVG.getGraph());
-    dynamicRVG.calculateShortestPath();
-    dynamicRVG.drawIteration(scene.name);
+    dynamicRVG.calculateShortestPath(temporaryGoal);
+    dynamicRVG.drawIteration(scene.name, temporaryGoal);
 
     const auto scriptPath = outputDir / ("drawIteration_" + scene.name + ".py");
     expect(std::filesystem::exists(scriptPath), "drawIteration writes script for " + scene.name);

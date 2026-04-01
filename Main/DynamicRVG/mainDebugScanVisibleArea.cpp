@@ -96,7 +96,10 @@ int main() {
 #ifdef WRITE_DYNAMIC_RVG_SCENES
   for (const auto &scene : scenes) {
     DynamicRVG<T> dynamicRVG(scene.robot, scene.map, scene.obstacles, resolution, numThreads);
-    dynamicRVG.plan(scene.start, scene.start);
+    dynamicRVG.plan(
+        std::make_shared<Vertex<T>>(scene.start),
+        std::make_shared<Vertex<T>>(scene.start)
+    );
     dynamicRVG.drawVisibleArea(scene.name);
 
     const auto scriptPath = outputDir / ("drawVisibleArea_" + scene.name + ".py");

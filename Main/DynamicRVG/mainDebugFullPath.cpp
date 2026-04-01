@@ -111,7 +111,10 @@ int main() {
 #ifdef WRITE_DYNAMIC_RVG_FULL_PATH
   for (const auto &scene : scenes) {
     DynamicRVG<T> dynamicRVG(scene.robot, scene.map, scene.obstacles, resolution, numThreads);
-    const bool planned = dynamicRVG.plan(scene.start, scene.goal);
+    const bool planned = dynamicRVG.plan(
+        std::make_shared<Vertex<T>>(scene.start),
+        std::make_shared<Vertex<T>>(scene.goal)
+    );
     expect(planned, "plan succeeds for " + scene.name);
 
     dynamicRVG.drawFullPathAndEndGraph(scene.name);

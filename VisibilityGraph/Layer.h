@@ -68,6 +68,7 @@ class Layer {
   bool _simplifiedGeometry;
   bool _hasHoles;
   bool _borderIsHole;
+  std::vector<bool> _bordersAreHoles;
   bool _infeasible;
   T _theta_lb, _theta_ub;
   std::shared_ptr<VQ> _vq, _holeVQ;
@@ -78,6 +79,7 @@ class Layer {
   std::vector<Polygon_2> _holes;
   std::vector<std::pair<std::shared_ptr<Vertex<T>>, std::shared_ptr<Vertex<T>>>> _edges;
   Polygon<T> _shrunkBorder, _robotBBox, _robotBBoxInverted;
+  std::vector<Polygon<T>> _shrunkBorders;
   std::vector<Segment_2> _segments;
   Polygon_with_holes_2 _complementBorder;
   Arrangement_2 _env;

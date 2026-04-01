@@ -1,80 +1,85 @@
 #include <DynamicVisibilityGraph/DynamicRVG.h>
-#include <VisibilityGraph/MapGenerator.h>
-#include <VisibilityGraph/RectangleObstacleMapGenerator.h>
+#include <Utils/Pragma.h>
+#include <Utils/Utils.h>
+#include <VisibilityGraph/Polygon.h>
+#include <VisibilityGraph/Utils.h>
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <Utils/Utils.h>
-
-// Uncomment to generate random DynamicRVG full-path scripts in build/dynamicrvgdebug.
-#define WRITE_DYNAMIC_RVG_RANDOM_SCENES
 
 using namespace RotationalVisibilityGraph;
-
-typedef double T;
+using T = double;
 DECL_CGAL_CARTESIAN_TYPES_T
 DECL_CGAL_POLYGON_TYPES_T
 DECL_CGAL_VISIBILITY_GRAPH_TYPES_T
 
-Polygon<T> makeRobot() {
-  return Polygon<T>({
-      Vertex<T>(-3, 0),
-      Vertex<T>(-2, 0),
-      Vertex<T>(-2, 2),
-      Vertex<T>(-3, 2)
-  }, false);
-}
-
-void expect(bool ok, const std::string &name) {
-  Utils::print(ok ? "[PASS]" : "[FAIL]", name);
-  if (!ok) throw std::runtime_error(name);
-}
-
-int main() {
-  constexpr int resolution = 36;
-  constexpr int numThreads = 1;
-  constexpr int targetSuccessfulScenes = 3;
-  constexpr int maxAttempts = 20;
-  constexpr int mapSize = 30;
-  constexpr int numberOfObstacles = 8;
-  constexpr T minObstacleSize = 2.0;
-  constexpr T maxObstacleSize = 4.0;
-
-  const Polygon<T> robot = makeRobot();
-  const std::filesystem::path outputDir = std::filesystem::path("build") / "dynamicrvgdebug";
-  std::filesystem::create_directories(outputDir);
-
-#ifdef WRITE_DYNAMIC_RVG_RANDOM_SCENES
-  int successes = 0;
-  for (int attempt = 1; attempt <= maxAttempts && successes < targetSuccessfulScenes; ++attempt) {
-    RectangleObstacleMapGenerator<T> mapGenerator(mapSize, numberOfObstacles, minObstacleSize, maxObstacleSize, robot);
-    mapGenerator.generateMap();
-
-    const Vertex<T> start = mapGenerator.getStart();
-    const Vertex<T> goal = mapGenerator.getGoal();
-    DynamicRVG<T> dynamicRVG(robot, mapGenerator.getBorder(), mapGenerator.getObstacles(), resolution, numThreads);
-    const bool planned = dynamicRVG.plan(start, goal);
-    if (!planned) {
-      Utils::print("Skipping random attempt", attempt, "because plan() failed.");
-      continue;
-    }
-
-    ++successes;
-    const std::string sceneName = "random_scene_" + std::to_string(successes);
-    dynamicRVG.drawFullPathAndEndGraph(sceneName);
-
-    const auto scriptPath = outputDir / ("drawFullPathAndEndGraph_" + sceneName + ".py");
-    expect(std::filesystem::exists(scriptPath), "drawFullPathAndEndGraph writes script for " + sceneName);
-    expect(!dynamicRVG.getExplorationPath().empty(), "plan populates exploration path for " + sceneName);
-    expect(dynamicRVG.getGraph().size() > 0, "plan leaves final graph for " + sceneName);
-    RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<double>(scriptPath.string());
+int main(int argc, char *argv[]) {
+  if (argc < 4) {
+    throw std::runtime_error("Usage: mainDebugDynamicRVG <config.xml> <resolution> <numThreads> [figPath]");
   }
 
-  expect(successes == targetSuccessfulScenes, "random DynamicRVG generation produced enough successful scenes");
-#else
-  Utils::print("Random DynamicRVG generation disabled. Uncomment WRITE_DYNAMIC_RVG_RANDOM_SCENES in mainDebugDynamicRVG.cpp to enable it.");
-#endif
+  tinyxml2::XMLDocument pt;
+  if (pt.LoadFile(argv[1]) != tinyxml2::XML_SUCCESS) {
+    throw std::runtime_error("Failed to load config file");
+  }
+
+  const int resolution = std::stoi(argv[2]);
+  const int numThreads = std::stoi(argv[3]);
+  const std::string figPath = argc > 4 ? argv[4] : "";
+
+  const Polygon<T> robot = RotationalVisibilityGraph::Utils::getRobot<T>(pt);
+  const std::vector<Polygon<T>> obstacles = RotationalVisibilityGraph::Utils::getObstacles<T>(pt);
+
+  Polygon<T> map;
+  const bool useBoundary = RotationalVisibilityGraph::Utils::get<bool>(
+      *pt.RootElement()->FirstChildElement("environment"),
+      "useBoundary",
+      false
+  );
+  if (useBoundary) {
+    map = RotationalVisibilityGraph::Utils::getBoundary<T>(pt);
+  } else {
+    const int mapSize = RotationalVisibilityGraph::Utils::get<int>(
+        *pt.RootElement()->FirstChildElement("environment"),
+        "mapSize",
+        100
+    );
+    map = RotationalVisibilityGraph::Utils::getMap<T>(mapSize);
+  }
+
+  const auto plannerSettings = pt.RootElement()->FirstChildElement("plannerSettings");
+  const std::shared_ptr<Vertex<T>> start = RotationalVisibilityGraph::Utils::getVertex<T>(
+      *plannerSettings->FirstChildElement("start")->FirstChildElement("Vertex")
+  );
+  const std::shared_ptr<Vertex<T>> goal = RotationalVisibilityGraph::Utils::getVertex<T>(
+      *plannerSettings->FirstChildElement("goal")->FirstChildElement("Vertex")
+  );
+
+  RotationalVisibilityGraph::Utils::print("Setup:",
+                                          "Start", *start,
+                                          "Goal", *goal,
+                                          "Resolution", resolution,
+                                          "NumThreads", numThreads,
+                                          "Draw Graph", figPath);
+
+  DynamicRVG<T> dynamicRVG(robot, map, obstacles, resolution, numThreads);
+  dynamicRVG.setWeight(1.0, 0.0);
+
+  const bool planned = dynamicRVG.plan(start, goal);
+  RotationalVisibilityGraph::Utils::print("DynamicRVG planned:", planned);
+  RotationalVisibilityGraph::Utils::print("Exploration path vertices:", dynamicRVG.getExplorationPath().size());
+  RotationalVisibilityGraph::Utils::print("Final graph size:", dynamicRVG.getGraph().size());
+
+  if (!planned) {
+    return 1;
+  }
+
+  if (!figPath.empty()) {
+    const std::string outputName = std::filesystem::path(figPath).stem().string();
+    const std::string scriptPath = dynamicRVG.drawFullPathAndEndGraph(outputName);
+    RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(scriptPath);
+  }
 
   return 0;
 }
