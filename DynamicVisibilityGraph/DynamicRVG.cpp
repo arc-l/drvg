@@ -430,6 +430,19 @@ std::string DynamicRVG<T>::drawFullPathAndEndGraph(const std::string &name) cons
     const std::string suffix = name.empty() ? "" : "_" + name;
     const std::string imagePath = (outputDir / ("fullPathAndEndGraph" + suffix + ".png")).string();
     const std::string scriptPath = (outputDir / ("drawFullPathAndEndGraph" + suffix + ".py")).string();
+    std::vector<Vertex<T>> globalShortestPath;
+    if (_start && _goal) {
+        VisibilityGraph<T> globalVG(
+            this->_robot,
+            this->_border,
+            this->_obstacles,
+            this->_resolution,
+            false,
+            this->_numThreads
+        );
+        globalVG.setWeight(_alpha, _beta);
+        globalShortestPath = globalVG.shortestPath(this->_start, this->_goal, 0, false);
+    }
 
     std::string pythonScript;
     pythonScript += "import matplotlib.pyplot as plt\n";
@@ -475,21 +488,67 @@ std::string DynamicRVG<T>::drawFullPathAndEndGraph(const std::string &name) cons
 
     pythonScript += _graph.draw();
 
-    if (!_explorationPath.empty()) {
-        pythonScript += "path_x = [";
-        for (size_t i = 0; i < _explorationPath.size(); ++i) {
-            pythonScript += std::to_string(_explorationPath[i]->getX());
-            if (i + 1 < _explorationPath.size()) pythonScript += ", ";
+    const auto appendRobotFootprint = [&](const Vertex<T> &pose,
+                                          const std::string &edgeColor,
+                                          const std::string &fillColor,
+                                          double alpha,
+                                          double lineWidth) {
+        if (!pose.hasTheta()) {
+            return;
+        }
+        const Polygon<T> robotFootprint = this->_robot.moveToCopy(
+            pose.getX(),
+            pose.getY(),
+            pose.getTheta()
+        );
+        appendPolygon(robotFootprint, edgeColor, fillColor, alpha, lineWidth);
+    };
+
+    const auto appendPath = [&](const std::string &prefix,
+                                const std::vector<std::shared_ptr<Vertex<T>>> &path,
+                                const std::string &style) {
+        if (path.empty()) {
+            return;
+        }
+        pythonScript += prefix + "_x = [";
+        for (size_t i = 0; i < path.size(); ++i) {
+            pythonScript += std::to_string(path[i]->getX());
+            if (i + 1 < path.size()) pythonScript += ", ";
         }
         pythonScript += "]\n";
-        pythonScript += "path_y = [";
-        for (size_t i = 0; i < _explorationPath.size(); ++i) {
-            pythonScript += std::to_string(_explorationPath[i]->getY());
-            if (i + 1 < _explorationPath.size()) pythonScript += ", ";
+        pythonScript += prefix + "_y = [";
+        for (size_t i = 0; i < path.size(); ++i) {
+            pythonScript += std::to_string(path[i]->getY());
+            if (i + 1 < path.size()) pythonScript += ", ";
         }
         pythonScript += "]\n";
-        pythonScript += "ax.plot(path_x, path_y, '-o', color='navy', linewidth=2.0, markersize=3)\n";
-    }
+        pythonScript += "ax.plot(" + prefix + "_x, " + prefix + "_y, " + style + ")\n";
+    };
+
+    const auto appendValuePath = [&](const std::string &prefix,
+                                     const std::vector<Vertex<T>> &path,
+                                     const std::string &style) {
+        if (path.empty()) {
+            return;
+        }
+        pythonScript += prefix + "_x = [";
+        for (size_t i = 0; i < path.size(); ++i) {
+            pythonScript += std::to_string(path[i].getX());
+            if (i + 1 < path.size()) pythonScript += ", ";
+        }
+        pythonScript += "]\n";
+        pythonScript += prefix + "_y = [";
+        for (size_t i = 0; i < path.size(); ++i) {
+            pythonScript += std::to_string(path[i].getY());
+            if (i + 1 < path.size()) pythonScript += ", ";
+        }
+        pythonScript += "]\n";
+        pythonScript += "ax.plot(" + prefix + "_x, " + prefix + "_y, " + style + ")\n";
+    };
+
+    appendPath("exploration_path", _explorationPath, "'-o', color='navy', linewidth=2.2, markersize=3, label='Exploration path'");
+    appendPath("dynamic_shortest_path", _shortestPath, "'--s', color='darkorange', linewidth=1.8, markersize=2.5, label='DynamicRVG shortest path'");
+    appendValuePath("global_shortest_path", globalShortestPath, "'-', color='forestgreen', linewidth=2.4, label='Global RVG shortest path'");
 
     if (!_explorationPath.empty()) {
         pythonScript += "ax.plot([" + std::to_string(_explorationPath.front()->getX()) + "], [" +
@@ -509,7 +568,15 @@ std::string DynamicRVG<T>::drawFullPathAndEndGraph(const std::string &name) cons
                         ", ' goal', color='navy', fontsize=8)\n";
     }
 
+    if (_start) {
+        appendRobotFootprint(*_start, "crimson", "mistyrose", 0.35, 1.2);
+    }
+    if (_goal) {
+        appendRobotFootprint(*_goal, "forestgreen", "honeydew", 0.30, 1.2);
+    }
+
     pythonScript += "ax.set_aspect('equal', adjustable='box')\n";
+    pythonScript += "ax.legend(loc='best', fontsize=8)\n";
     pythonScript += "plt.title('Dynamic RVG full path and final graph')\n";
     pythonScript += "plt.savefig('" + imagePath + "', dpi=500, bbox_inches='tight')\n";
     Utils::writeStringToFile<T>(pythonScript, scriptPath);
