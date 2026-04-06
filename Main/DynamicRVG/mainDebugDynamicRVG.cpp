@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
                                           "Draw Graph", figPath);
 
   DynamicRVG<T> dynamicRVG(robot, map, obstacles, resolution, numThreads);
-  dynamicRVG.setWeight(1.0, 0.0);
+  dynamicRVG.setWeight(1.0, 0.1);
 
   const bool planned = dynamicRVG.plan(start, goal);
   RotationalVisibilityGraph::Utils::print("DynamicRVG planned:", planned);

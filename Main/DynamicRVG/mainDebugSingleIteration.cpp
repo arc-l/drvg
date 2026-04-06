@@ -121,19 +121,6 @@ int main() {
     dynamicRVG.setGoalForDebug(std::make_shared<Vertex<T>>(scene.goal));
 
     dynamicRVG.scanVisibleArea(scene.start);
-
-    VisibilityGraph<T> iterationVG = dynamicRVG.buildVisibilityGraph();
-    dynamicRVG.setGraph(iterationVG.getGraph());
-    const std::shared_ptr<Vertex<T>> temporaryGoal = dynamicRVG.calculateTemporaryGoal();
-
-    iterationVG = dynamicRVG.buildVisibilityGraph();
-    dynamicRVG.setGraph(iterationVG.getGraph());
-    dynamicRVG.calculateShortestPath(temporaryGoal);
-    dynamicRVG.drawIteration(scene.name, temporaryGoal);
-
-    const auto scriptPath = outputDir / ("drawIteration_" + scene.name + ".py");
-    expect(std::filesystem::exists(scriptPath), "drawIteration writes script for " + scene.name);
-    expect(dynamicRVG.getGraph().size() > 0, "buildVisibilityGraph creates graph for " + scene.name);
   }
 #else
   Utils::print("Single-iteration generation disabled. Uncomment WRITE_DYNAMIC_RVG_SINGLE_ITERATION in mainDebugSingleIteration.cpp to enable it.");

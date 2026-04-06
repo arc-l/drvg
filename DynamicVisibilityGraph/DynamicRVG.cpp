@@ -39,9 +39,9 @@ const Polygon<T> &DynamicRVG<T>::scanVisibleArea(const Vertex<T> & currentLocati
 }
 
 template <typename T>
-std::shared_ptr<Vertex<T>> DynamicRVG<T>::calculateTemporaryGoal() const
+std::shared_ptr<Vertex<T>> DynamicRVG<T>::calculateTemporaryGoal(const std::shared_ptr<Vertex<T>> &currentVertex) const
 {
-    if (!_start || !_goal) {
+    if (!_start || !_goal || !currentVertex) {
         return nullptr;
     }
 
@@ -63,47 +63,75 @@ std::shared_ptr<Vertex<T>> DynamicRVG<T>::calculateTemporaryGoal() const
         return nullptr;
     }
 
-    std::unordered_set<
+    const auto edgeCost = [&](const std::shared_ptr<Vertex<T>> &from, const std::shared_ptr<Vertex<T>> &to) {
+        return _alpha * from->dist(*to) + _beta * from->rotationalDist(*to);
+    };
+
+    std::unordered_map<
         std::shared_ptr<Vertex<T>>,
+        T,
         typename Graph<T>::SharedPtrVertexHash,
         typename Graph<T>::SharedPtrVertexEqual
-    > reachableVertices;
-    std::queue<std::shared_ptr<Vertex<T>>> frontier;
-    frontier.push(this->_start);
-    reachableVertices.insert(this->_start);
+    > distanceFromRealStart;
+    for (const auto &vertex : vertices) {
+        distanceFromRealStart[vertex] = std::numeric_limits<T>::max();
+    }
+
+    std::priority_queue<
+        std::pair<T, std::shared_ptr<Vertex<T>>>,
+        std::vector<std::pair<T, std::shared_ptr<Vertex<T>>>>,
+        std::greater<>
+    > frontier;
+    distanceFromRealStart[this->_start] = 0;
+    frontier.push({0, this->_start});
     while (!frontier.empty()) {
-        const auto current = frontier.front();
+        const auto [currentCost, current] = frontier.top();
         frontier.pop();
+        if (currentCost > distanceFromRealStart[current]) {
+            continue;
+        }
         for (const auto &neighbor : adjacencyList.at(current)) {
-            if (reachableVertices.insert(neighbor).second) {
-                frontier.push(neighbor);
+            const T nextCost = currentCost + edgeCost(current, neighbor);
+            if (nextCost < distanceFromRealStart[neighbor]) {
+                distanceFromRealStart[neighbor] = nextCost;
+                frontier.push({nextCost, neighbor});
             }
         }
     }
 
-    std::shared_ptr<Vertex<T>> closestVertex = nullptr;
-    T closestDistance = std::numeric_limits<T>::max();
+    const T goalBiasLambda = static_cast<T>(0.0);
+    std::shared_ptr<Vertex<T>> bestVertex = nullptr;
+    T bestEstimatedTotalCost = std::numeric_limits<T>::max();
+    const auto isExploredPosition = [&](const std::shared_ptr<Vertex<T>> &candidate) {
+        for (const auto &exploredVertex : _exploredVertices) {
+            if (candidate->dist(*exploredVertex) < 1e-5) {
+                return true;
+            }
+        }
+        return false;
+    };
     for (const auto &vertex : vertices) {
-        if (reachableVertices.find(vertex) == reachableVertices.end()) {
+        const T costFromRealStart = distanceFromRealStart[vertex];
+        if (costFromRealStart == std::numeric_limits<T>::max()) {
             continue;
         }
-        if (_exploredVertices.find(vertex) != _exploredVertices.end()) {
+        if (vertex->dist(*currentVertex) < 1e-5) {
             continue;
         }
-        const T distanceToGoal = vertex->dist(*this->_goal);
-        if (distanceToGoal < closestDistance) {
-            closestDistance = distanceToGoal;
-            closestVertex = vertex;
+        if (isExploredPosition(vertex)) {
+            continue;
+        }
+        const T estimatedCostToGoal = edgeCost(vertex, this->_goal);
+        const T estimatedTotalCost = goalBiasLambda * costFromRealStart + estimatedCostToGoal;
+        if (estimatedTotalCost < bestEstimatedTotalCost) {
+            bestEstimatedTotalCost = estimatedTotalCost;
+            bestVertex = vertex;
         }
     }
 
-    return closestVertex;
+    return bestVertex;
 }
 
-template <typename T>
-VisibilityGraph<T> DynamicRVG<T>::buildVisibilityGraph()
-{
-}
 
 template <typename T>
 void DynamicRVG<T>::calculateShortestPath(const std::shared_ptr<Vertex<T>> &temporaryGoal)
@@ -151,6 +179,7 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
     _graph = Graph<T>();
     _graph.setWeight(_alpha, _beta);
     _exploredVertices.clear();
+    _exploredVertices.insert(this->_start);
     _explorationPath.clear();
     _shortestPath.clear();
 
@@ -194,6 +223,8 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
         bool startAdded = iterationVG.addVertex(tempStart);
         (void) startAdded;
         bool goalAdded = iterationVG.addVertex(this->_goal);
+        std::string figPath = "Iteration-" + std::to_string(iteration + 1) + "-RVG.png";
+        // iterationVG.draw(figPath, false, false, true, false);
         _graph.mergeGraph(iterationVG.getGraph());
         if (goalAdded){
             const auto shortestPath = _graph.shortestPath(
@@ -215,7 +246,9 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
             drawCurrentIteration(iteration, this->_goal);
             return true;
         }
-        tempGoal = calculateTemporaryGoal();
+        std::cout << "Iteration " << iteration + 1 << ": _alpha = " << _alpha << ", _beta = " << _beta << std::endl;
+        tempGoal = calculateTemporaryGoal(tempStart);
+        std::cout << "Temporary goal: " << *tempGoal << std::endl;
         if (!tempGoal) {
             Utils::print("No temporary goal found in this iteration, stopping planning.");
             drawFailureState(iteration, "no_temporary_goal");

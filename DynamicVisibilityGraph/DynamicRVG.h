@@ -22,8 +22,7 @@ public:
 
     const Polygon<T> &scanVisibleArea(const Vertex<T> & currentLocation); // scan the environment at the current robot location and return the visible polygon
 
-    std::shared_ptr<Vertex<T>> calculateTemporaryGoal() const; // calculate a temporary goal for the robot to move to when the real goal is not visible. For now, we can simply use the vertex in the graph that is closest to the real goal and not yet explored. Later we can use A* for this. For example, cost = cost to start + estimated distance to goal.
-    VisibilityGraph<T> buildVisibilityGraph(); // build the visibility graph based on the current visible and traversed area. We will use our temporary goal as the goal when building the visibility graph. This is because we want to find a path to the temporary goal first, and then move to the temporary goal, and then repeat the process until we can see the real goal and move to the real goal directly.
+    std::shared_ptr<Vertex<T>> calculateTemporaryGoal(const std::shared_ptr<Vertex<T>> &currentVertex) const; // calculate a temporary goal for the robot to move to when the real goal is not visible. We rank discovered vertices by cost from the real start plus an estimate to the real goal, and we never allow the current robot position itself to be chosen again.
 
     void calculateShortestPath(const std::shared_ptr<Vertex<T>> &temporaryGoal); // calculate the shortest path from the start to the temporary goal based on the current visibility graph. 
 
