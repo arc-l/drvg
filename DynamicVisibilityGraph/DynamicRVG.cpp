@@ -1,5 +1,6 @@
 #include "DynamicRVG.h"
 #include <VisibilityGraph/Utils.h>
+#include <cmath>
 #include <filesystem>
 #include <queue>
 #include <Utils/Utils.h>
@@ -207,7 +208,7 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
         RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(scriptPath);
     };
 
-    const int maxIterations = std::max(1, static_cast<int>(this->_obstacles.size()) * 4 + 10);
+    const int maxIterations = 10000;
     auto tempStart = this->_start;
     auto tempGoal = this->_goal;
     for (int iteration = 0; iteration < maxIterations; ++iteration) {
@@ -537,9 +538,63 @@ std::string DynamicRVG<T>::drawFullPathAndEndGraph(const std::string &name) cons
         appendPolygon(robotFootprint, edgeColor, fillColor, alpha, lineWidth);
     };
 
+    const auto normalizeAngle = [](T angle) {
+        while (angle <= -static_cast<T>(PI)) {
+            angle += static_cast<T>(2 * PI);
+        }
+        while (angle > static_cast<T>(PI)) {
+            angle -= static_cast<T>(2 * PI);
+        }
+        return angle;
+    };
+
+    const auto interpolatePath = [&](const std::vector<Vertex<T>> &path) {
+        std::vector<Vertex<T>> interpolatedPath;
+        if (path.empty()) {
+            return interpolatedPath;
+        }
+
+        interpolatedPath.push_back(path.front());
+        const int samplesPerEdge = 5;
+
+        for (size_t i = 1; i < path.size(); ++i) {
+            const Vertex<T> &from = path[i - 1];
+            const Vertex<T> &to = path[i];
+            const bool hasTheta = from.hasTheta() && to.hasTheta();
+            const T deltaTheta = hasTheta ? normalizeAngle(to.getTheta() - from.getTheta()) : static_cast<T>(0);
+            const int numSamples = samplesPerEdge;
+
+            for (int sample = 1; sample <= numSamples; ++sample) {
+                const T t = static_cast<T>(sample) / static_cast<T>(numSamples);
+                Vertex<T> pose(
+                    from.getX() + (to.getX() - from.getX()) * t,
+                    from.getY() + (to.getY() - from.getY()) * t
+                );
+                if (hasTheta) {
+                    pose.setTheta(from.getTheta() + deltaTheta * t);
+                }
+                interpolatedPath.push_back(pose);
+            }
+        }
+
+        return interpolatedPath;
+    };
+
+    const auto pathCost = [&](const std::vector<Vertex<T>> &path) {
+        T cost = 0;
+        for (size_t i = 1; i < path.size(); ++i) {
+            cost += _alpha * path[i - 1].dist(path[i]);
+            if (path[i - 1].hasTheta() && path[i].hasTheta()) {
+                cost += _beta * path[i - 1].rotationalDist(path[i]);
+            }
+        }
+        return cost;
+    };
+
     const auto appendPath = [&](const std::string &prefix,
                                 const std::vector<std::shared_ptr<Vertex<T>>> &path,
-                                const std::string &style) {
+                                const std::string &style,
+                                const std::string &label) {
         if (path.empty()) {
             return;
         }
@@ -555,12 +610,13 @@ std::string DynamicRVG<T>::drawFullPathAndEndGraph(const std::string &name) cons
             if (i + 1 < path.size()) pythonScript += ", ";
         }
         pythonScript += "]\n";
-        pythonScript += "ax.plot(" + prefix + "_x, " + prefix + "_y, " + style + ")\n";
+        pythonScript += "ax.plot(" + prefix + "_x, " + prefix + "_y, " + style + ", label='" + label + "')\n";
     };
 
     const auto appendValuePath = [&](const std::string &prefix,
                                      const std::vector<Vertex<T>> &path,
-                                     const std::string &style) {
+                                     const std::string &style,
+                                     const std::string &label) {
         if (path.empty()) {
             return;
         }
@@ -576,12 +632,60 @@ std::string DynamicRVG<T>::drawFullPathAndEndGraph(const std::string &name) cons
             if (i + 1 < path.size()) pythonScript += ", ";
         }
         pythonScript += "]\n";
-        pythonScript += "ax.plot(" + prefix + "_x, " + prefix + "_y, " + style + ")\n";
+        pythonScript += "ax.plot(" + prefix + "_x, " + prefix + "_y, " + style + ", label='" + label + "')\n";
     };
 
-    appendPath("exploration_path", _explorationPath, "'-o', color='navy', linewidth=2.2, markersize=3, label='Exploration path'");
-    appendPath("dynamic_shortest_path", _shortestPath, "'--s', color='darkorange', linewidth=1.8, markersize=2.5, label='DynamicRVG shortest path'");
-    appendValuePath("global_shortest_path", globalShortestPath, "'-', color='forestgreen', linewidth=2.4, label='Global RVG shortest path'");
+    std::vector<Vertex<T>> explorationPathValues;
+    explorationPathValues.reserve(_explorationPath.size());
+    for (const auto &vertex : _explorationPath) {
+        explorationPathValues.push_back(*vertex);
+    }
+
+    std::vector<Vertex<T>> dynamicShortestPathValues;
+    dynamicShortestPathValues.reserve(_shortestPath.size());
+    for (const auto &vertex : _shortestPath) {
+        dynamicShortestPathValues.push_back(*vertex);
+    }
+
+    appendPath(
+        "exploration_path",
+        _explorationPath,
+        "'-o', color='navy', linewidth=1.2, markersize=2.0",
+        "Exploration path (cost=" + std::to_string(pathCost(explorationPathValues)) + ")"
+    );
+    appendPath(
+        "dynamic_shortest_path",
+        _shortestPath,
+        "'--s', color='darkorange', linewidth=1.0, markersize=1.8",
+        "DynamicRVG shortest path (cost=" + std::to_string(pathCost(dynamicShortestPathValues)) + ")"
+    );
+    appendValuePath(
+        "global_shortest_path",
+        globalShortestPath,
+        "'-', color='forestgreen', linewidth=1.2",
+        "Global RVG shortest path (cost=" + std::to_string(pathCost(globalShortestPath)) + ")"
+    );
+
+    std::vector<Vertex<T>> finalPathForRobot;
+    if (!_shortestPath.empty()) {
+        finalPathForRobot.reserve(_shortestPath.size());
+        for (const auto &vertex : _shortestPath) {
+            finalPathForRobot.push_back(*vertex);
+        }
+    } else {
+        finalPathForRobot = globalShortestPath;
+    }
+    const std::vector<Vertex<T>> interpolatedRobotPath = interpolatePath(finalPathForRobot);
+    for (size_t i = 0; i < interpolatedRobotPath.size(); ++i) {
+        const bool isEndpoint = (i == 0) || (i + 1 == interpolatedRobotPath.size());
+        appendRobotFootprint(
+            interpolatedRobotPath[i],
+            "mediumpurple",
+            "plum",
+            isEndpoint ? 0.18 : 0.10,
+            isEndpoint ? 1.0 : 0.6
+        );
+    }
 
     if (!_explorationPath.empty()) {
         pythonScript += "ax.plot([" + std::to_string(_explorationPath.front()->getX()) + "], [" +

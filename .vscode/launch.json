@@ -592,10 +592,11 @@
             "program": "${command:cmake.buildDirectory}/mainDebugDynamicRVG",
             "args": [
                 // "../Configs/corridor_star.xml",
-                // "../Configs/mapfixedStartAndGoalSmall1.xml",
-                "../Configs/env1.xml",
-                "36",
-                "1",
+                "../Configs/mapfixedStartAndGoalSmall1.xml",
+                // "../Configs/env1.xml",
+                // "../Configs/corridor.xml",
+                "72",
+                "24",
                 "../Results/mapfixedStartAndGoalSmall1.png"
             ],
             "stopAtEntry": false,
