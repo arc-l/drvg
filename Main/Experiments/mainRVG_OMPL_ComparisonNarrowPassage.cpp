@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
   Vertex<T> start = robot.getCentroid();
   start.setBounds(0, 2 * PI);
   start.setTheta(0);
-  Vertex<T> goal(8, 0, 0, 2 * PI, PI / 2, 2 * PI, false);
+  Vertex<T> goal(8, 0, 0, 2 * PI, PI / 2);
   std::shared_ptr<Vertex<T>> startPtr = std::make_shared<Vertex<T>>(start);
   std::shared_ptr<Vertex<T>> goalPtr = std::make_shared<Vertex<T>>(goal);
 
