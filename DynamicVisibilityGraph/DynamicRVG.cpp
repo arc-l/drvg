@@ -117,17 +117,6 @@ std::shared_ptr<Vertex<T>> DynamicRVG<T>::calculateTemporaryGoal(const std::shar
         }
     }
 
-    if (_visibleAreaInMap.size()) {
-        const Point_2 goalPoint = this->_goal->getPoint();
-        const auto goalDistanceIt = distanceFromRealStart.find(this->_goal);
-        if ((IN_POLYGON(goalPoint, _visibleAreaInMap.getPolygon()) ||
-             ON_EDGE(goalPoint, _visibleAreaInMap.getPolygon())) &&
-            goalDistanceIt != distanceFromRealStart.end() &&
-            goalDistanceIt->second != std::numeric_limits<T>::max()) {
-            return this->_goal;
-        }
-    }
-
     const T goalBiasLambda = static_cast<T>(0.0);
     std::shared_ptr<Vertex<T>> bestVertex = nullptr;
     T bestEstimatedTotalCost = std::numeric_limits<T>::max();

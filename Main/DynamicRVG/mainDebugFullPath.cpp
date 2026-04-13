@@ -111,6 +111,7 @@ int main() {
 #ifdef WRITE_DYNAMIC_RVG_FULL_PATH
   for (const auto &scene : scenes) {
     DynamicRVG<T> dynamicRVG(scene.robot, scene.map, scene.obstacles, resolution, numThreads);
+    dynamicRVG.setWeight(1.0, 0.1);
     const bool planned = dynamicRVG.plan(
         std::make_shared<Vertex<T>>(scene.start),
         std::make_shared<Vertex<T>>(scene.goal)
