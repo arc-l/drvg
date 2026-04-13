@@ -6,7 +6,31 @@
 #include <Utils/Utils.h>
 
 namespace RotationalVisibilityGraph {
-    
+
+template <typename T>
+void DynamicRVG<T>::setCameraOffset(const Vertex<T> &cameraOffset)
+{
+    _cameraOffset = cameraOffset;
+}
+
+template <typename T>
+Vertex<T> DynamicRVG<T>::getScanLocation(const Vertex<T> &robotCenter) const
+{
+    T offsetX = _cameraOffset.getX();
+    T offsetY = _cameraOffset.getY();
+    if (robotCenter.hasTheta()) {
+        const T theta = robotCenter.getTheta();
+        const T rotatedOffsetX = offsetX * std::cos(theta) - offsetY * std::sin(theta);
+        const T rotatedOffsetY = offsetX * std::sin(theta) + offsetY * std::cos(theta);
+        offsetX = rotatedOffsetX;
+        offsetY = rotatedOffsetY;
+    }
+
+    Vertex<T> scanLocation(robotCenter);
+    scanLocation.setPos(robotCenter.getX() + offsetX, robotCenter.getY() + offsetY);
+    return scanLocation;
+}
+
 template <typename T>
 const Polygon<T> &DynamicRVG<T>::scanVisibleArea(const Vertex<T> & currentLocation) // scan the environment at the current robot location and then update the _visibleAreaInMap
 {
@@ -16,14 +40,15 @@ const Polygon<T> &DynamicRVG<T>::scanVisibleArea(const Vertex<T> & currentLocati
     map.push_back(this->_border.getPolygon());
     Arrangement_2 env = obsToArrangement<T>(map), visibleArea;
     PL_2 pointLocation(env);
-    auto obj = pointLocation.locate(currentLocation.getPoint());
+    const Vertex<T> scanLocation = getScanLocation(currentLocation);
+    auto obj = pointLocation.locate(scanLocation.getPoint());
     auto face = boost::get<Arrangement_2::Face_const_handle>(&obj);
     if (!face) {
         _visibleAreaInMap = Polygon<T>();
         return _visibleAreaInMap;
     }
     VQ visibility(env);
-    Face_handle visibleFace = visibility.compute_visibility(currentLocation.getPoint(), *face, visibleArea);
+    Face_handle visibleFace = visibility.compute_visibility(scanLocation.getPoint(), *face, visibleArea);
     std::vector<Vertex<T>> boundary;
     auto edge = visibleFace->outer_ccb();
     do {
@@ -346,8 +371,21 @@ void DynamicRVG<T>::drawVisibleArea(const std::string &name) const { // visualiz
     appendPolygon(_visibleAreaInMap, "goldenrod", "gold", 0.35, 1.5);
 
     const Vertex<T> &current = (this->_start && this->_start->hasTheta()) ? *this->_start : this->_robot.getCentroid();
+    const Vertex<T> scanLocation = getScanLocation(current);
+    const T robotTheta = current.hasTheta() ? current.getTheta() : static_cast<T>(0);
+    const Polygon<T> robotFootprint = this->_robot.moveToCopy(
+        current.getX(),
+        current.getY(),
+        robotTheta
+    );
+    appendPolygon(robotFootprint, "crimson", "mistyrose", 0.30, 1.2);
     pythonScript += "ax.plot([" + std::to_string(current.getX()) + "], [" + std::to_string(current.getY()) +
                     "], 'o', color='crimson', markersize=5)\n";
+    if (current.dist(scanLocation) > 1e-5) {
+        pythonScript += "ax.plot([" + std::to_string(scanLocation.getX()) + "], [" +
+                        std::to_string(scanLocation.getY()) +
+                        "], 'x', color='darkorange', markersize=6, markeredgewidth=2)\n";
+    }
 
     pythonScript += "ax.set_aspect('equal', adjustable='box')\n";
     pythonScript += "plt.title('Visible area')\n";
@@ -426,10 +464,26 @@ std::string DynamicRVG<T>::drawIteration(const std::string &name, const std::sha
     }
 
     const Vertex<T> &start = (this->_start && this->_start->hasTheta()) ? *this->_start : this->_robot.getCentroid();
+    const Vertex<T> scanLocation = getScanLocation(start);
+    const T robotTheta = start.hasTheta() ? start.getTheta() : static_cast<T>(0);
+    const Polygon<T> robotFootprint = this->_robot.moveToCopy(
+        start.getX(),
+        start.getY(),
+        robotTheta
+    );
+    appendPolygon(robotFootprint, "crimson", "mistyrose", 0.30, 1.2);
     pythonScript += "ax.plot([" + std::to_string(start.getX()) + "], [" + std::to_string(start.getY()) +
                     "], 'o', color='crimson', markersize=5)\n";
     pythonScript += "ax.text(" + std::to_string(start.getX()) + ", " + std::to_string(start.getY()) +
                     ", ' start', color='crimson', fontsize=8)\n";
+    if (start.dist(scanLocation) > 1e-5) {
+        pythonScript += "ax.plot([" + std::to_string(scanLocation.getX()) + "], [" +
+                        std::to_string(scanLocation.getY()) +
+                        "], 'x', color='darkorange', markersize=6, markeredgewidth=2)\n";
+        pythonScript += "ax.text(" + std::to_string(scanLocation.getX()) + ", " +
+                        std::to_string(scanLocation.getY()) +
+                        ", ' camera', color='darkorange', fontsize=8)\n";
+    }
 
     if (this->_goal && this->_goal->hasTheta()) {
         pythonScript += "ax.plot([" + std::to_string(this->_goal->getX()) + "], [" +
