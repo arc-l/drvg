@@ -71,14 +71,6 @@ std::shared_ptr<Vertex<T>> DynamicRVG<T>::calculateTemporaryGoal(const std::shar
         return nullptr;
     }
 
-    if (_visibleAreaInMap.size()) {
-        const Point_2 goalPoint = this->_goal->getPoint();
-        if (IN_POLYGON(goalPoint, _visibleAreaInMap.getPolygon()) ||
-            ON_EDGE(goalPoint, _visibleAreaInMap.getPolygon())) {
-            return this->_goal;
-        }
-    }
-
     const auto &vertices = _graph.getVertices();
     if (vertices.empty()) {
         return nullptr;
@@ -122,6 +114,17 @@ std::shared_ptr<Vertex<T>> DynamicRVG<T>::calculateTemporaryGoal(const std::shar
                 distanceFromRealStart[neighbor] = nextCost;
                 frontier.push({nextCost, neighbor});
             }
+        }
+    }
+
+    if (_visibleAreaInMap.size()) {
+        const Point_2 goalPoint = this->_goal->getPoint();
+        const auto goalDistanceIt = distanceFromRealStart.find(this->_goal);
+        if ((IN_POLYGON(goalPoint, _visibleAreaInMap.getPolygon()) ||
+             ON_EDGE(goalPoint, _visibleAreaInMap.getPolygon())) &&
+            goalDistanceIt != distanceFromRealStart.end() &&
+            goalDistanceIt->second != std::numeric_limits<T>::max()) {
+            return this->_goal;
         }
     }
 
@@ -258,19 +261,21 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
                 this->_goal,
                 false
             );
-            appendSegment(shortestPath);
-            _explorationPath = fullExplorationPath;
-            const auto realShortestPath = _graph.shortestPath(
-                this->_start,
-                this->_goal,
-                false
-            );
-            for (const auto &vertex : realShortestPath) {
-                const auto vertexPtr = std::make_shared<Vertex<T>>(vertex);
-                _shortestPath.push_back(vertexPtr);
+            if (!shortestPath.empty()) {
+                appendSegment(shortestPath);
+                _explorationPath = fullExplorationPath;
+                const auto realShortestPath = _graph.shortestPath(
+                    this->_start,
+                    this->_goal,
+                    false
+                );
+                for (const auto &vertex : realShortestPath) {
+                    const auto vertexPtr = std::make_shared<Vertex<T>>(vertex);
+                    _shortestPath.push_back(vertexPtr);
+                }
+                drawCurrentIteration(iteration, this->_goal);
+                return true;
             }
-            drawCurrentIteration(iteration, this->_goal);
-            return true;
         }
         std::cout << "Iteration " << iteration + 1 << ": _alpha = " << _alpha << ", _beta = " << _beta << std::endl;
         tempGoal = calculateTemporaryGoal(tempStart);

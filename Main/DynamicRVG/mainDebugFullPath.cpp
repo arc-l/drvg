@@ -117,9 +117,7 @@ int main() {
     );
     expect(planned, "plan succeeds for " + scene.name);
 
-    dynamicRVG.drawFullPathAndEndGraph(scene.name);
-
-    const auto scriptPath = outputDir / ("drawFullPathAndEndGraph_" + scene.name + ".py");
+    const std::string scriptPath = dynamicRVG.drawFullPathAndEndGraph(scene.name);
     expect(std::filesystem::exists(scriptPath), "drawFullPathAndEndGraph writes script for " + scene.name);
     expect(!dynamicRVG.getExplorationPath().empty(), "plan populates exploration path for " + scene.name);
     expect(dynamicRVG.getGraph().size() > 0, "plan leaves final graph for " + scene.name);

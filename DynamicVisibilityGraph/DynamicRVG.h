@@ -17,7 +17,7 @@ public:
         const std::vector<Polygon<T>> &obstacles, 
         const T &resolution, 
         const int &numThreads
-    ): _robot(robot), _border(border), _cameraOffset(0, 0), _obstacles(obstacles), _resolution(resolution), _numThreads(numThreads){}
+    ): _robot(robot), _border(border), _cameraOffset(0, 0), _obstacles(obstacles), _resolution(resolution), _numThreads(numThreads), _alpha(1), _beta(0){}
     ~DynamicRVG() = default;
 
     void setCameraOffset(const Vertex<T> &cameraOffset); // set the camera offset from the robot center, which is used to calculate the visible area. We assume the camera is always facing forward and the offset is along the forward direction of the robot.
