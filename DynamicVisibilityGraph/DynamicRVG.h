@@ -78,6 +78,8 @@ private:
     T _alpha, _beta;
     Graph<T> _graph;
     Polygon<T> _visibleAreaInMap;
+    Polygon<T> _mappedBorder;
+    std::vector<Polygon<T>> _mappedObstacles;
     std::shared_ptr<Vertex<T>> _start, _goal;
     std::unordered_set<std::shared_ptr<Vertex<T>>, typename Vertex<T>::SharedPtrVertexHash, typename Vertex<T>::SharedPtrVertexEqual> _exploredVertices;
     std::vector<std::shared_ptr<Vertex<T>>> _explorationPath;

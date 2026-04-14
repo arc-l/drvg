@@ -292,6 +292,8 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
         return false;
     }
     _visibleAreaInMap = Polygon<T>();
+    _mappedBorder = Polygon<T>();
+    _mappedObstacles.clear();
     _graph = Graph<T>();
     _graph.setWeight(_alpha, _beta);
     _exploredVertices.clear();
@@ -413,6 +415,8 @@ bool DynamicRVG<T>::planIncrementalMapping(const std::shared_ptr<Vertex<T>> &sta
         return false;
     }
     _visibleAreaInMap = Polygon<T>();
+    _mappedBorder = Polygon<T>();
+    _mappedObstacles.clear();
     _graph = Graph<T>();
     _graph.setWeight(_alpha, _beta);
     _exploredVertices.clear();
@@ -492,6 +496,8 @@ bool DynamicRVG<T>::planIncrementalMapping(const std::shared_ptr<Vertex<T>> &sta
             drawFailureState(iteration, "no_known_component");
             return false;
         }
+        _mappedBorder = knownBorder;
+        _mappedObstacles = knownObstacles;
 
         VisibilityGraph<T> iterationVG(
             this->_robot,
@@ -699,6 +705,10 @@ std::string DynamicRVG<T>::drawIteration(const std::string &name, const std::sha
     appendPolygon(this->_border, "dimgray", "", 0.0, 1.0);
     for (const auto &obs : this->_obstacles) {
         appendPolygon(obs, "darkcyan", "lightcyan", 0.8, 1.0);
+    }
+    appendPolygon(_mappedBorder, "royalblue", "lightskyblue", 0.12, 1.8);
+    for (const auto &mappedObstacle : _mappedObstacles) {
+        appendPolygon(mappedObstacle, "royalblue", "white", 1.0, 1.4);
     }
     appendPolygon(_visibleAreaInMap, "goldenrod", "gold", 0.35, 1.5);
 
