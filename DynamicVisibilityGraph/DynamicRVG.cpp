@@ -7,6 +7,101 @@
 
 namespace RotationalVisibilityGraph {
 
+namespace {
+
+template <typename T>
+bool sanitizePolygonForBooleanOps(
+    const Polygon<T> &input,
+    typename Polygon<T>::Polygon_2 &output
+) {
+    using Polygon2 = typename Polygon<T>::Polygon_2;
+    using Point2 = typename Polygon<T>::Point_2;
+
+    output.clear();
+    if (input.size() < 3) {
+        return false;
+    }
+
+    std::vector<Point2> points;
+    points.reserve(input.size());
+    for (const auto &vertex : input.getVertices()) {
+        const Point2 point = vertex.getPoint();
+        if (!points.empty() && point == points.back()) {
+            continue;
+        }
+        points.push_back(point);
+    }
+    while (points.size() >= 2 && points.front() == points.back()) {
+        points.pop_back();
+    }
+    if (points.size() < 3) {
+        return false;
+    }
+
+    bool removedPoint = true;
+    while (removedPoint && points.size() >= 3) {
+        removedPoint = false;
+        std::vector<Point2> simplified;
+        simplified.reserve(points.size());
+        for (size_t i = 0; i < points.size(); ++i) {
+            const Point2 &prev = points[(i + points.size() - 1) % points.size()];
+            const Point2 &curr = points[i];
+            const Point2 &next = points[(i + 1) % points.size()];
+            if (CGAL::orientation(prev, curr, next) == CGAL::COLLINEAR) {
+                removedPoint = true;
+                continue;
+            }
+            if (!simplified.empty() && curr == simplified.back()) {
+                removedPoint = true;
+                continue;
+            }
+            simplified.push_back(curr);
+        }
+        points.swap(simplified);
+    }
+
+    if (points.size() < 3) {
+        return false;
+    }
+
+    Polygon2 candidate(points.begin(), points.end());
+    if (candidate.is_clockwise_oriented()) {
+        candidate.reverse_orientation();
+    }
+    if (!candidate.is_simple()) {
+        return false;
+    }
+    if (candidate.orientation() != CGAL::COUNTERCLOCKWISE) {
+        return false;
+    }
+    if (candidate.area() == 0) {
+        return false;
+    }
+
+    output = candidate;
+    return true;
+}
+
+template <typename Point2, typename PolygonWithHoles>
+bool pointInsidePolygonWithHoles(
+    const Point2 &point,
+    const PolygonWithHoles &polygonWithHoles
+) {
+    const auto &outerBoundary = polygonWithHoles.outer_boundary();
+    if (!(IN_POLYGON(point, outerBoundary) || ON_EDGE(point, outerBoundary))) {
+        return false;
+    }
+    for (auto holeIt = polygonWithHoles.holes_begin(); holeIt != polygonWithHoles.holes_end(); ++holeIt) {
+        const auto &hole = *holeIt;
+        if (IN_POLYGON(point, hole) || ON_EDGE(point, hole)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+}
+
 template <typename T>
 void DynamicRVG<T>::setCameraOffset(const Vertex<T> &cameraOffset)
 {
@@ -68,16 +163,19 @@ template <typename T>
 std::shared_ptr<Vertex<T>> DynamicRVG<T>::calculateTemporaryGoal(const std::shared_ptr<Vertex<T>> &currentVertex) const
 {
     if (!_start || !_goal || !currentVertex) {
+        std::cout << "Start, goal, or current vertex is not set." << std::endl;
         return nullptr;
     }
 
     const auto &vertices = _graph.getVertices();
     if (vertices.empty()) {
+        std::cout << "Visibility graph has no vertices." << std::endl;
         return nullptr;
     }
 
     const auto &adjacencyList = _graph.getAdjacencyList();
     if (adjacencyList.find(this->_start) == adjacencyList.end()) {
+        std::cout << "Start vertex is not in the visibility graph." << std::endl;
         return nullptr;
     }
 
@@ -239,10 +337,14 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
             this->_numThreads
         );
         bool startAdded = iterationVG.addVertex(tempStart);
+        // const auto &layers = iterationVG.getLayers();
+        // for (size_t i = 0; i < layers.size(); ++i){
+        //     std::string layerFigPath = "iteration" + std::to_string(iteration) + "layer-" + std::to_string(i) + ".png";
+        //     const auto & layer = layers[i];
+        //     layer.draw(layerFigPath, this->_visibleAreaInMap, this->_obstacles, nullptr, false);
+        // }
         (void) startAdded;
         bool goalAdded = iterationVG.addVertex(this->_goal);
-        std::string figPath = "Iteration-" + std::to_string(iteration + 1) + "-RVG.png";
-        // iterationVG.draw(figPath, false, false, true, false);
         _graph.mergeGraph(iterationVG.getGraph());
         if (goalAdded){
             const auto shortestPath = _graph.shortestPath(
@@ -298,6 +400,169 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
     drawFailureState(maxIterations - 1, "iteration_limit");
     return false;
 } // plan a path from start to goal using the visibility graph
+
+template <typename T>
+bool DynamicRVG<T>::planIncrementalMapping(const std::shared_ptr<Vertex<T>> &start, const std::shared_ptr<Vertex<T>> &goal)
+{
+    DECL_CGAL_CARTESIAN_TYPES_T
+    DECL_CGAL_POLYGON_TYPES_T
+
+    this->_start = start;
+    this->_goal = goal;
+    if (!this->_start || !this->_goal) {
+        return false;
+    }
+    _visibleAreaInMap = Polygon<T>();
+    _graph = Graph<T>();
+    _graph.setWeight(_alpha, _beta);
+    _exploredVertices.clear();
+    _exploredVertices.insert(this->_start);
+    _explorationPath.clear();
+    _shortestPath.clear();
+
+    Polygon_with_holes_2 knownMap;
+    bool knownMapInitialized = false;
+    std::vector<std::shared_ptr<Vertex<T>>> fullExplorationPath;
+    const auto appendSegment = [&](const std::vector<Vertex<T>> &segment) {
+        for (size_t i = 0; i < segment.size(); ++i) {
+            if (!fullExplorationPath.empty() && i == 0 && *fullExplorationPath.back() == segment[i]) {
+                continue;
+            }
+            fullExplorationPath.push_back(std::make_shared<Vertex<T>>(segment[i]));
+        }
+    };
+    size_t failureDrawCounter = 0;
+    const auto drawFailureState = [&](int iteration, const std::string &reason, const std::shared_ptr<Vertex<T>> &temporaryGoal = nullptr) {
+        _explorationPath = fullExplorationPath;
+        _shortestPath = fullExplorationPath;
+        ++failureDrawCounter;
+        std::string name = "incremental_failed_" + std::to_string(failureDrawCounter) + "_iter_" +
+                           std::to_string(iteration + 1) + "_" + reason;
+        const std::string scriptPath = drawIteration(name, temporaryGoal);
+        RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(scriptPath);
+    };
+    const auto drawCurrentIteration = [&](int iteration, const std::shared_ptr<Vertex<T>> &temporaryGoal = nullptr) {
+        std::string name = "incremental_iter_" + std::to_string(iteration + 1);
+        const std::string scriptPath = drawIteration(name, temporaryGoal);
+        RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(scriptPath);
+    };
+    const auto extractKnownComponent = [&](const Point_2 &queryPoint, Polygon<T> &knownBorder, std::vector<Polygon<T>> &knownObstacles) {
+        if (!knownMapInitialized || !pointInsidePolygonWithHoles(queryPoint, knownMap)) {
+            return false;
+        }
+
+        knownBorder = Polygon<T>(knownMap.outer_boundary());
+        knownObstacles.clear();
+        for (auto holeIt = knownMap.holes_begin(); holeIt != knownMap.holes_end(); ++holeIt) {
+            knownObstacles.emplace_back(*holeIt);
+        }
+        return true;
+    };
+
+    const int maxIterations = 10000;
+    auto tempStart = this->_start;
+    auto tempGoal = this->_goal;
+    for (int iteration = 0; iteration < maxIterations; ++iteration) {
+        scanVisibleArea(*tempStart);
+        if (_visibleAreaInMap.size()) {
+            Polygon_2 sanitizedScanPolygon;
+            if (sanitizePolygonForBooleanOps(_visibleAreaInMap, sanitizedScanPolygon)) {
+                Polygon_with_holes_2 sanitizedScanRegion(sanitizedScanPolygon);
+                if (!knownMapInitialized) {
+                    knownMap = sanitizedScanRegion;
+                    knownMapInitialized = true;
+                } else if (pointInsidePolygonWithHoles(tempStart->getPoint(), knownMap) &&
+                           (IN_POLYGON(tempStart->getPoint(), sanitizedScanPolygon) ||
+                            ON_EDGE(tempStart->getPoint(), sanitizedScanPolygon))) {
+                    Polygon_with_holes_2 mergedMap;
+                    CGAL::join(knownMap, sanitizedScanRegion, mergedMap);
+                    knownMap = mergedMap;
+                } else {
+                    Utils::print("Skipping disconnected scanned polygon while updating incremental map.");
+                }
+            } else {
+                Utils::print("Skipping invalid scanned polygon while updating incremental map.");
+            }
+        }
+
+        Polygon<T> knownBorder;
+        std::vector<Polygon<T>> knownObstacles;
+        if (!extractKnownComponent(tempStart->getPoint(), knownBorder, knownObstacles)) {
+            Utils::print("No known free-space component contains the current robot position.");
+            drawFailureState(iteration, "no_known_component");
+            return false;
+        }
+
+        VisibilityGraph<T> iterationVG(
+            this->_robot,
+            knownBorder,
+            knownObstacles,
+            this->_resolution,
+            false,
+            this->_numThreads
+        );
+        bool startAdded = iterationVG.addVertex(tempStart);
+        std::cout << "StartAdded: " << startAdded << std::endl;
+        bool readStartAdded = iterationVG.addVertex(this->_start);
+        std::cout << "ReadStartAdded: " << readStartAdded << std::endl;
+        bool goalAdded = iterationVG.addVertex(this->_goal);
+        _graph = iterationVG.getGraph();
+        _graph.setWeight(_alpha, _beta);
+
+        if (goalAdded) {
+            const auto shortestPath = _graph.shortestPath(
+                tempStart,
+                this->_goal,
+                false
+            );
+            if (!shortestPath.empty()) {
+                appendSegment(shortestPath);
+                _explorationPath = fullExplorationPath;
+                const auto realShortestPath = _graph.shortestPath(
+                    this->_start,
+                    this->_goal,
+                    false
+                );
+                for (const auto &vertex : realShortestPath) {
+                    const auto vertexPtr = std::make_shared<Vertex<T>>(vertex);
+                    _shortestPath.push_back(vertexPtr);
+                }
+                drawCurrentIteration(iteration, this->_goal);
+                return true;
+            }
+        }
+
+        std::cout << "Iteration " << iteration + 1 << ": _alpha = " << _alpha << ", _beta = " << _beta << std::endl;
+        tempGoal = calculateTemporaryGoal(tempStart);
+        if (!tempGoal) {
+            Utils::print("No temporary goal found in this iteration, stopping planning.");
+            drawFailureState(iteration, "no_temporary_goal");
+            return false;
+        }
+        std::cout << "Temporary goal: " << *tempGoal << std::endl;
+
+        const auto shortestPath = _graph.shortestPath(
+            tempStart,
+            tempGoal,
+            false
+        );
+        if (shortestPath.empty()) {
+            Utils::print("No path found in this iteration, stopping planning.");
+            drawFailureState(iteration, "no_path", tempGoal);
+            return false;
+        }
+
+        appendSegment(shortestPath);
+        _explorationPath = fullExplorationPath;
+        drawCurrentIteration(iteration, tempGoal);
+        _exploredVertices.insert(tempGoal);
+        tempStart = tempGoal;
+    }
+
+    Utils::print("Incremental-mapping planning did not converge within the iteration limit.");
+    drawFailureState(maxIterations - 1, "iteration_limit");
+    return false;
+}
 
 template <typename T>
 void DynamicRVG<T>::moverobotdebug(const Vertex<T> &nextLocation)
@@ -397,9 +662,7 @@ std::string DynamicRVG<T>::drawIteration(const std::string &name, const std::sha
     const std::string scriptPath = (outputDir / ("drawIteration" + suffix + ".py")).string();
 
     std::string pythonScript;
-    pythonScript += "import matplotlib.pyplot as plt\n";
-    pythonScript += "fig, ax = plt.subplots(dpi=500)\n";
-    pythonScript += "ax.set_facecolor('gainsboro')\n";
+    PYTHON_IMPORTS(pythonScript)
 
     int polygonId = 0;
     auto appendPolygon = [&](const Polygon<T> &polygon,
@@ -495,6 +758,12 @@ std::string DynamicRVG<T>::drawIteration(const std::string &name, const std::sha
         pythonScript += "ax.text(" + std::to_string(temporaryGoal->getX()) + ", " +
                         std::to_string(temporaryGoal->getY()) +
                         ", ' temp goal', color='darkviolet', fontsize=8)\n";
+        const Polygon<T> tempGoalRobot = this->_robot.moveToCopy(
+                temporaryGoal->getX(),
+                temporaryGoal->getY(),
+                temporaryGoal->getTheta()
+        );
+        pythonScript += tempGoalRobot.draw("path");
     }
 
     pythonScript += "ax.set_aspect('equal', adjustable='box')\n";

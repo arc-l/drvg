@@ -16,7 +16,9 @@ DECL_CGAL_VISIBILITY_GRAPH_TYPES_T
 
 int main(int argc, char *argv[]) {
   if (argc < 4) {
-    throw std::runtime_error("Usage: mainDebugDynamicRVG <config.xml> <resolution> <numThreads> [figPath]");
+    throw std::runtime_error(
+        "Usage: mainDebugDynamicRVG <config.xml> <resolution> <numThreads> [figPath] [plan|incremental]"
+    );
   }
 
   tinyxml2::XMLDocument pt;
@@ -27,6 +29,7 @@ int main(int argc, char *argv[]) {
   const int resolution = std::stoi(argv[2]);
   const int numThreads = std::stoi(argv[3]);
   const std::string figPath = argc > 4 ? argv[4] : "";
+  const std::string plannerMode = argc > 5 ? argv[5] : "plan";
 
   const Polygon<T> robot = RotationalVisibilityGraph::Utils::getRobot<T>(pt);
   const std::vector<Polygon<T>> obstacles = RotationalVisibilityGraph::Utils::getObstacles<T>(pt);
@@ -61,12 +64,19 @@ int main(int argc, char *argv[]) {
                                           "Goal", *goal,
                                           "Resolution", resolution,
                                           "NumThreads", numThreads,
-                                          "Draw Graph", figPath);
+                                          "Draw Graph", figPath,
+                                          "Planner Mode", plannerMode);
+
+  if (plannerMode != "plan" && plannerMode != "incremental") {
+    throw std::runtime_error("Planner mode must be either 'plan' or 'incremental'");
+  }
 
   DynamicRVG<T> dynamicRVG(robot, map, obstacles, resolution, numThreads);
   dynamicRVG.setWeight(1.0, 0.1);
 
-  const bool planned = dynamicRVG.plan(start, goal);
+  const bool planned = plannerMode == "incremental"
+                           ? dynamicRVG.planIncrementalMapping(start, goal)
+                           : dynamicRVG.plan(start, goal);
   RotationalVisibilityGraph::Utils::print("DynamicRVG planned:", planned);
   RotationalVisibilityGraph::Utils::print("Exploration path vertices:", dynamicRVG.getExplorationPath().size());
   RotationalVisibilityGraph::Utils::print("Final graph size:", dynamicRVG.getGraph().size());

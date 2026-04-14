@@ -66,7 +66,12 @@ int main(int argc, char *argv[]) {
   // visibilityGraph.animation(figPath, false);
   // change the figPath's extension to .png
   figPath = figPath.substr(0, figPath.find_last_of('.')) + ".png";
-  visibilityGraph.draw(figPath, false, true, true, false, -1);
+  // for (int i = 0; i < layers.size(); i++) {
+  //   const auto &layer = layers[i];
+  //   std::string layerFigPath = figPath.substr(0, figPath.find_last_of('.')) + "_layer_" + std::to_string(i) + ".png";
+  //   layer.draw(layerFigPath, map, obstacles, nullptr, false);
+  // }
+  visibilityGraph.draw(figPath, false, true, false, false, -1);
   // visibilityGraph.draw3D(false);
   return 0;
 
