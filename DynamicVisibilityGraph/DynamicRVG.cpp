@@ -142,9 +142,14 @@ const Polygon<T> &DynamicRVG<T>::scanVisibleArea(const Vertex<T> & currentLocati
         _visibleAreaInMap = Polygon<T>();
         return _visibleAreaInMap;
     }
+    //TODO: make this a class member and reuse it across iterations to save time. We just need to update the arrangement with new obstacles when we discover them, and we can use the same visibility object to compute visibility.
     VQ visibility(env);
     Face_handle visibleFace = visibility.compute_visibility(scanLocation.getPoint(), *face, visibleArea);
     std::vector<Vertex<T>> boundary;
+    /*TODO: Build a convex hull for the robot at the current location
+        Use a for loop to make scans at all corners of the convex hull
+        Merge all the visible areas together to get the final visible area. This can help us mitigate the issue of missing narrow passages when the robot is large and the camera is at the center.
+    */
     auto edge = visibleFace->outer_ccb();
     do {
         const auto &point = edge->source()->point();
@@ -366,7 +371,7 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
                     const auto vertexPtr = std::make_shared<Vertex<T>>(vertex);
                     _shortestPath.push_back(vertexPtr);
                 }
-                drawCurrentIteration(iteration, this->_goal);
+                // drawCurrentIteration(iteration, this->_goal);
                 return true;
             }
         }
@@ -393,7 +398,7 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
 
         appendSegment(shortestPath);
         _explorationPath = fullExplorationPath;
-        drawCurrentIteration(iteration, tempGoal);
+        // drawCurrentIteration(iteration, tempGoal);
         _exploredVertices.insert(tempGoal);
         tempStart = tempGoal;
     }
@@ -533,7 +538,7 @@ bool DynamicRVG<T>::planIncrementalMapping(const std::shared_ptr<Vertex<T>> &sta
                     const auto vertexPtr = std::make_shared<Vertex<T>>(vertex);
                     _shortestPath.push_back(vertexPtr);
                 }
-                drawCurrentIteration(iteration, this->_goal);
+                // drawCurrentIteration(iteration, this->_goal);
                 return true;
             }
         }
@@ -560,7 +565,7 @@ bool DynamicRVG<T>::planIncrementalMapping(const std::shared_ptr<Vertex<T>> &sta
 
         appendSegment(shortestPath);
         _explorationPath = fullExplorationPath;
-        drawCurrentIteration(iteration, tempGoal);
+        // drawCurrentIteration(iteration, tempGoal);
         _exploredVertices.insert(tempGoal);
         tempStart = tempGoal;
     }
