@@ -9,9 +9,35 @@
 #include <Utils/Utils.h>
 #include <unordered_map>
 #include <climits>
+#include <sstream>
 #include <unistd.h>
 
 namespace RotationalVisibilityGraph {
+
+namespace {
+
+template<typename T>
+void logInvalidLayerPolygon(const char *label,
+                            T thetaLb,
+                            T thetaUb,
+                            const typename Polygon<T>::Polygon_2 &polygon) {
+  std::ostringstream oss;
+  oss << "Skipping invalid " << label << " for theta range ["
+      << thetaLb << ", " << thetaUb << "] with vertices:";
+  for (const auto &vertex : polygon.vertices()) {
+    oss << " (" << CGAL::to_double(vertex.x()) << ", "
+        << CGAL::to_double(vertex.y()) << ")";
+  }
+  std::cerr << oss.str() << std::endl;
+}
+
+template<typename T>
+bool isUsablePolygon(const Polygon<T> &polygon) {
+  return polygon.getPolygon().size() >= 3;
+}
+
+}
+
 template<typename T>
 Layer<T>::Layer() = default;
 
@@ -271,13 +297,18 @@ void Layer<T>::_shrinkBorder(const Polygon<T> &border) {
 #endif
   // ASSERT_MSG(_complementBorder.number_of_holes() == 1, "The border should have only one hole")
   for (const auto &hole: _complementBorder.holes()) {
-    _shrunkBorders.push_back(Polygon<T>(hole));
+    Polygon<T> shrunkBorder(hole);
+    if (!isUsablePolygon(shrunkBorder)) {
+      logInvalidLayerPolygon<T>("shrunk border hole", _theta_lb, _theta_ub, hole);
+      continue;
+    }
+    _shrunkBorders.push_back(shrunkBorder);
   }
-  if (_complementBorder.number_of_holes() == 0) {
+  if (_complementBorder.number_of_holes() == 0 || _shrunkBorders.empty()) {
     _infeasible = true;
     return;
   }
-  _shrunkBorder = Polygon<T>(*_complementBorder.holes_begin());
+  _shrunkBorder = _shrunkBorders.front();
 }
 
 template<typename T>
@@ -294,11 +325,14 @@ void Layer<T>::_buildMap(const std::vector<Polygon<T>> &obstacles) {
   for (const Polygon_with_holes_2 &mergedObstacle : mergedObs) {
     if (mergedObstacle.has_holes()) {
       for (const Polygon_2 &hole : mergedObstacle.holes()) {
-        Polygon_2 newHole = hole;
-        if (newHole.is_clockwise_oriented())
-          newHole.reverse_orientation();
-        _holes.push_back(newHole);
-        for (const auto &vertex : hole.vertices()) {
+        Polygon<T> holePolygon(hole);
+        if (!isUsablePolygon(holePolygon)) {
+          logInvalidLayerPolygon<T>("merged obstacle hole", _theta_lb, _theta_ub, hole);
+          continue;
+        }
+        const Polygon_2 sanitizedHole = holePolygon.getCounterClockWise();
+        _holes.push_back(sanitizedHole);
+        for (const auto &vertex : sanitizedHole.vertices()) {
           _holePoints.push_back(vertex);
         }
       }
@@ -322,9 +356,12 @@ void Layer<T>::_buildMap(const std::vector<Polygon<T>> &obstacles) {
         prev++;
       }
     } while (curr != first);
-    if (cleanedPolygon.is_clockwise_oriented())
-      cleanedPolygon.reverse_orientation();
-    _grownObs.push_back(cleanedPolygon);
+    Polygon<T> grownObstacle(cleanedPolygon);
+    if (!isUsablePolygon(grownObstacle)) {
+      logInvalidLayerPolygon<T>("grown obstacle", _theta_lb, _theta_ub, cleanedPolygon);
+      continue;
+    }
+    _grownObs.push_back(grownObstacle.getCounterClockWise());
   }
 
   auto iter = _grownObs.begin();
@@ -362,7 +399,12 @@ void Layer<T>::_buildMap(const std::vector<Polygon<T>> &obstacles) {
         }
       }
       if (!intersection) {
-        _shrunkBorder = Polygon<T>(newHole);
+        Polygon<T> shrunkBorder(newHole);
+        if (!isUsablePolygon(shrunkBorder)) {
+          logInvalidLayerPolygon<T>("selected shrunk border", _theta_lb, _theta_ub, newHole);
+          continue;
+        }
+        _shrunkBorder = shrunkBorder;
         holeIsBorder = true;
       }
     } else {
@@ -381,18 +423,28 @@ void Layer<T>::_buildMap(const std::vector<Polygon<T>> &obstacles) {
     if (holeIsBorder) {
       continue;
     }
-    if (newHole.is_clockwise_oriented())
-      newHole.reverse_orientation();
-    _holes.push_back(newHole);
-    for (const auto &vertex : newHole.vertices()) {
+    Polygon<T> holePolygon(newHole);
+    if (!isUsablePolygon(holePolygon)) {
+      logInvalidLayerPolygon<T>("map hole", _theta_lb, _theta_ub, newHole);
+      continue;
+    }
+    const Polygon_2 sanitizedHole = holePolygon.getCounterClockWise();
+    _holes.push_back(sanitizedHole);
+    for (const auto &vertex : sanitizedHole.vertices()) {
       _holePoints.push_back(vertex);
     }
   }
   if (_borderIsHole) {
-    _shrunkBorder = Polygon<T>(holes[maxHoleId]);
+    Polygon<T> shrunkBorder(holes[maxHoleId]);
+    if (!isUsablePolygon(shrunkBorder)) {
+      logInvalidLayerPolygon<T>("largest shrunk border", _theta_lb, _theta_ub, holes[maxHoleId]);
+      _infeasible = true;
+      return;
+    }
+    _shrunkBorder = shrunkBorder;
   }
 
-  if (!_grownObs.empty()) {
+  if (!_grownObs.empty() && isUsablePolygon(_shrunkBorder)) {
     std::vector<Polygon_2> polygons = _grownObs;
     polygons.push_back(_shrunkBorder.getCounterClockWise());
     for (const Polygon_2 &polygon : polygons) {
@@ -957,4 +1009,3 @@ class Layer<double>;
 template
 class Layer<float>;
 } // namespace RotationalVisibilityGraph
-
