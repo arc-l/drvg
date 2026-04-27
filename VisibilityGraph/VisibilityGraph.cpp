@@ -805,8 +805,11 @@ void VisibilityGraph<T>::animation(const std::string &figPath, bool title) {
   // create temp folder
   std::string tmpFolderPath = Utils::createTempFolder<T>();
   std::string pythonScript;
-  // use pillow to create gif
+  // Generate PNG frames, then encode them according to figPath's extension.
   PYTHON_IMPORTS(pythonScript)
+  pythonScript += "from matplotlib.animation import FFMpegWriter\n";
+  pythonScript += "animation_path = '" + figPath + "'\n";
+  pythonScript += "animation_extension = os.path.splitext(animation_path)[1].lower()\n";
   pythonScript += "image_paths = []\n";
   for (size_t i = 0; i < _sol.size(); i++) {
     pythonScript += "fig, ax = plt.subplots()\n";
@@ -825,7 +828,7 @@ void VisibilityGraph<T>::animation(const std::string &figPath, bool title) {
     const auto &vertex = _sol[i];
     Polygon<T> tmpRobot =
         _realRobot.moveToCopy(vertex.getX(), vertex.getY(), vertex.getTheta());
-    pythonScript += tmpRobot.draw("path");
+    pythonScript += tmpRobot.draw("path_fill");
     if (title)
       pythonScript +=
           "plt.title(f'Resolution=" + std::to_string(_resolution) +
@@ -843,9 +846,24 @@ void VisibilityGraph<T>::animation(const std::string &figPath, bool title) {
     pythonScript += "image_paths.append('" + imagePath + "')\n";
   }
   pythonScript += "images = [Image.open(img) for img in image_paths]\n";
-  pythonScript += "images[0].save('" + figPath +
-                  "', save_all=True, append_images=images[1:], optimize=False, "
-                  "duration=50, fps=60, loop=0)\n";
+  pythonScript += "if animation_extension == '.gif':\n";
+  pythonScript +=
+      "\timages[0].save(animation_path, save_all=True, "
+      "append_images=images[1:], optimize=False, duration=50, fps=60, loop=0)\n";
+  pythonScript += "else:\n";
+  pythonScript += "\tfig, ax = plt.subplots(frameon=False)\n";
+  pythonScript += "\tfirst_image = images[0].convert('RGB')\n";
+  pythonScript += "\twidth, height = first_image.size\n";
+  pythonScript += "\tfig.set_size_inches(width / 100, height / 100)\n";
+  pythonScript += "\tax.set_axis_off()\n";
+  pythonScript += "\tfig.subplots_adjust(left=0, right=1, bottom=0, top=1)\n";
+  pythonScript += "\tframe = ax.imshow(np.asarray(first_image))\n";
+  pythonScript += "\twriter = FFMpegWriter(fps=60)\n";
+  pythonScript += "\twith writer.saving(fig, animation_path, dpi=100):\n";
+  pythonScript += "\t\tfor image in images:\n";
+  pythonScript += "\t\t\tframe.set_data(np.asarray(image.convert('RGB')))\n";
+  pythonScript += "\t\t\twriter.grab_frame()\n";
+  pythonScript += "\tplt.close(fig)\n";
   pythonScript += "for img in image_paths:\n";
   pythonScript += "\tos.remove(img)\n";
   std::string pythonSavePath = tmpFolderPath + "/animation" + std::to_string(_resolution) + ".py";
@@ -880,11 +898,11 @@ std::string VisibilityGraph<T>::_drawSetup() const {
   // start and goal
   if(_start.hasTheta()){
     Polygon<T> tmpRobot = _realRobot.moveToCopy(_start.getX(), _start.getY(), _start.getTheta());
-    pythonScript += tmpRobot.draw("start");
+    pythonScript += tmpRobot.draw("start_fill");
   }
   if(_goal.hasTheta()){
     Polygon<T> tmpRobot = _realRobot.moveToCopy(_goal.getX(), _goal.getY(), _goal.getTheta());
-    pythonScript += tmpRobot.draw("goal");
+    pythonScript += tmpRobot.draw("goal_fill");
   }
   return pythonScript;
 }
