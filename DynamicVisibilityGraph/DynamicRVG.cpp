@@ -204,36 +204,60 @@ const Polygon<T> &DynamicRVG<T>::scanFromAllVertices(const Vertex<T> & currentLo
         return _visibleAreaInMap;
     }
 
-    std::vector<Polygon_with_holes_2> visibleRegions;
-    CGAL::join(visibleAreas.begin(), visibleAreas.end(), std::back_inserter(visibleRegions));
+    std::vector<Polygon<T>> visibleRegions;
+    const auto polygonContainsOrTouchesPoint = [](const Polygon<T> &polygon, const Point_2 &point) {
+        return IN_POLYGON(point, polygon.getPolygon()) || ON_EDGE(point, polygon.getPolygon());
+    };
+    for (const auto &visibleArea : visibleAreas) {
+        Polygon<T> mergedRegion(visibleArea);
+        bool mergedIntoExistingRegion = true;
+        while (mergedIntoExistingRegion) {
+            mergedIntoExistingRegion = false;
+            for (auto regionIt = visibleRegions.begin(); regionIt != visibleRegions.end(); ++regionIt) {
+                const bool regionsOverlap =
+                    mergedRegion.intersects(*regionIt) ||
+                    polygonContainsOrTouchesPoint(mergedRegion, (*regionIt)[0].getPoint()) ||
+                    polygonContainsOrTouchesPoint(*regionIt, mergedRegion[0].getPoint());
+                if (!regionsOverlap) {
+                    continue;
+                }
+
+                mergedRegion = mergedRegion.merge(*regionIt);
+                visibleRegions.erase(regionIt);
+                mergedIntoExistingRegion = true;
+                break;
+            }
+        }
+        visibleRegions.push_back(mergedRegion);
+    }
     if (visibleRegions.empty()) {
         _visibleAreaInMap = Polygon<T>();
         return _visibleAreaInMap;
     }
 
-    const auto containsRobot = [&](const Polygon_with_holes_2 &region) {
-        if (pointInsidePolygonWithHoles(currentLocation.getPoint(), region)) {
+    const auto containsRobot = [&](const Polygon<T> &region) {
+        if (polygonContainsOrTouchesPoint(region, currentLocation.getPoint())) {
             return true;
         }
         return std::any_of(
             robotFootprint.getVertices().begin(),
             robotFootprint.getVertices().end(),
             [&](const Vertex<T> &robotVertex) {
-                return pointInsidePolygonWithHoles(robotVertex.getPoint(), region);
+                return polygonContainsOrTouchesPoint(region, robotVertex.getPoint());
             }
         );
     };
     const auto regionIt = std::find_if(visibleRegions.begin(), visibleRegions.end(), containsRobot);
-    const Polygon_with_holes_2 &selectedRegion = regionIt != visibleRegions.end()
+    const Polygon<T> &selectedRegion = regionIt != visibleRegions.end()
         ? *regionIt
         : visibleRegions.front();
 
-    if (selectedRegion.outer_boundary().size() < 3) {
+    if (selectedRegion.size() < 3) {
         _visibleAreaInMap = Polygon<T>();
         return _visibleAreaInMap;
     }
 
-    _visibleAreaInMap = Polygon<T>(selectedRegion.outer_boundary());
+    _visibleAreaInMap = selectedRegion;
     return _visibleAreaInMap;
 }
 
