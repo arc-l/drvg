@@ -17,7 +17,8 @@ DECL_CGAL_VISIBILITY_GRAPH_TYPES_T
 int main(int argc, char *argv[]) {
   if (argc < 4) {
     throw std::runtime_error(
-        "Usage: mainDebugDynamicRVG <config.xml> <resolution> <numThreads> [figPath] [plan|incremental]"
+        "Usage: mainDebugDynamicRVG <config.xml> <resolution> <numThreads> "
+        "[figPath] [plan|incremental] [--scan-from-all-vertices]"
     );
   }
 
@@ -28,8 +29,25 @@ int main(int argc, char *argv[]) {
 
   const int resolution = std::stoi(argv[2]);
   const int numThreads = std::stoi(argv[3]);
-  const std::string figPath = argc > 4 ? argv[4] : "";
-  const std::string plannerMode = argc > 5 ? argv[5] : "plan";
+  std::string figPath;
+  std::string plannerMode = "plan";
+  bool useScanFromAllVertices = false;
+  for (int argIndex = 4; argIndex < argc; ++argIndex) {
+    const std::string argument = argv[argIndex];
+    if (argument == "plan" || argument == "incremental") {
+      plannerMode = argument;
+      continue;
+    }
+    if (argument == "--scan-from-all-vertices") {
+      useScanFromAllVertices = true;
+      continue;
+    }
+    if (figPath.empty()) {
+      figPath = argument;
+      continue;
+    }
+    throw std::runtime_error("Unknown command line argument: " + argument);
+  }
 
   const Polygon<T> robot = RotationalVisibilityGraph::Utils::getRobot<T>(pt);
   const std::vector<Polygon<T>> obstacles = RotationalVisibilityGraph::Utils::getObstacles<T>(pt);
@@ -65,7 +83,8 @@ int main(int argc, char *argv[]) {
                                           "Resolution", resolution,
                                           "NumThreads", numThreads,
                                           "Draw Graph", figPath,
-                                          "Planner Mode", plannerMode);
+                                          "Planner Mode", plannerMode,
+                                          "Scan From All Vertices", useScanFromAllVertices);
 
   if (plannerMode != "plan" && plannerMode != "incremental") {
     throw std::runtime_error("Planner mode must be either 'plan' or 'incremental'");
@@ -75,8 +94,8 @@ int main(int argc, char *argv[]) {
   dynamicRVG.setWeight(1.0, 0.1);
 
   const bool planned = plannerMode == "incremental"
-                           ? dynamicRVG.planIncrementalMapping(start, goal)
-                           : dynamicRVG.plan(start, goal);
+                           ? dynamicRVG.planIncrementalMapping(start, goal, useScanFromAllVertices)
+                           : dynamicRVG.plan(start, goal, useScanFromAllVertices);
   RotationalVisibilityGraph::Utils::print("DynamicRVG planned:", planned);
   RotationalVisibilityGraph::Utils::print("Exploration path vertices:", dynamicRVG.getExplorationPath().size());
   RotationalVisibilityGraph::Utils::print("Final graph size:", dynamicRVG.getGraph().size());

@@ -27,8 +27,16 @@ public:
 
     void calculateShortestPath(const std::shared_ptr<Vertex<T>> &temporaryGoal); // calculate the shortest path from the start to the temporary goal based on the current visibility graph. 
 
-    bool plan(const std::shared_ptr<Vertex<T>> &start, const std::shared_ptr<Vertex<T>> &goal);
-    bool planIncrementalMapping(const std::shared_ptr<Vertex<T>> &start, const std::shared_ptr<Vertex<T>> &goal); // plan using a persistent explored free-space map assembled from all scans so far.
+    bool plan(
+        const std::shared_ptr<Vertex<T>> &start,
+        const std::shared_ptr<Vertex<T>> &goal,
+        bool useScanFromAllVertices = false
+    );
+    bool planIncrementalMapping(
+        const std::shared_ptr<Vertex<T>> &start,
+        const std::shared_ptr<Vertex<T>> &goal,
+        bool useScanFromAllVertices = false
+    ); // plan using a persistent explored free-space map assembled from all scans so far.
         /*
             while not find solution
                 scanVisibleArea();

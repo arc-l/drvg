@@ -362,7 +362,11 @@ void DynamicRVG<T>::calculateShortestPath(const std::shared_ptr<Vertex<T>> &temp
 }
 
 template <typename T>
-bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::shared_ptr<Vertex<T>> &goal)
+bool DynamicRVG<T>::plan(
+    const std::shared_ptr<Vertex<T>> &start,
+    const std::shared_ptr<Vertex<T>> &goal,
+    bool useScanFromAllVertices
+)
 {
     this->_start = start;
     this->_goal = goal;
@@ -407,7 +411,11 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
     auto tempStart = this->_start;
     auto tempGoal = this->_goal;
     for (int iteration = 0; iteration < maxIterations; ++iteration) {
-        scanVisibleArea(*tempStart);
+        if (useScanFromAllVertices) {
+            scanFromAllVertices(*tempStart);
+        } else {
+            scanVisibleArea(*tempStart);
+        }
         VisibilityGraph<T> iterationVG(
             this->_robot,
             this->_visibleAreaInMap,
@@ -482,7 +490,11 @@ bool DynamicRVG<T>::plan(const std::shared_ptr<Vertex<T>> &start, const std::sha
 } // plan a path from start to goal using the visibility graph
 
 template <typename T>
-bool DynamicRVG<T>::planIncrementalMapping(const std::shared_ptr<Vertex<T>> &start, const std::shared_ptr<Vertex<T>> &goal)
+bool DynamicRVG<T>::planIncrementalMapping(
+    const std::shared_ptr<Vertex<T>> &start,
+    const std::shared_ptr<Vertex<T>> &goal,
+    bool useScanFromAllVertices
+)
 {
     DECL_CGAL_CARTESIAN_TYPES_T
     DECL_CGAL_POLYGON_TYPES_T
@@ -545,7 +557,11 @@ bool DynamicRVG<T>::planIncrementalMapping(const std::shared_ptr<Vertex<T>> &sta
     auto tempStart = this->_start;
     auto tempGoal = this->_goal;
     for (int iteration = 0; iteration < maxIterations; ++iteration) {
-        scanVisibleArea(*tempStart);
+        if (useScanFromAllVertices) {
+            scanFromAllVertices(*tempStart);
+        } else {
+            scanVisibleArea(*tempStart);
+        }
         if (_visibleAreaInMap.size()) {
             Polygon_2 sanitizedScanPolygon;
             if (sanitizePolygonForBooleanOps(_visibleAreaInMap, sanitizedScanPolygon)) {
