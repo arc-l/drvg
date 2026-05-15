@@ -17,12 +17,11 @@ public:
         const std::vector<Polygon<T>> &obstacles, 
         const T &resolution, 
         const int &numThreads
-    ): _robot(robot), _border(border), _cameraOffset(0, 0), _obstacles(obstacles), _resolution(resolution), _numThreads(numThreads), _alpha(1), _beta(0){}
+    ): _robot(robot), _border(border), _obstacles(obstacles), _resolution(resolution), _numThreads(numThreads), _alpha(1), _beta(0){}
     ~DynamicRVG() = default;
 
-    void setCameraOffset(const Vertex<T> &cameraOffset); // set the camera offset from the robot center, which is used to calculate the visible area. We assume the camera is always facing forward and the offset is along the forward direction of the robot.
-
-    const Polygon<T> &scanVisibleArea(const Vertex<T> & currentLocation); // scan the environment at the current robot location and return the visible polygon
+    const Polygon<T> &scanVisibleArea(const Vertex<T> & currentLocation); // scan the environment at the current robot location from the robot center and return the visible polygon
+    const Polygon<T> &scanFromAllVertices(const Vertex<T> & currentLocation); // scan the environment from every vertex of the placed robot footprint and merge the visible regions
 
     std::shared_ptr<Vertex<T>> calculateTemporaryGoal(const std::shared_ptr<Vertex<T>> &currentVertex) const; // calculate a temporary goal for the robot to move to when the real goal is not visible. We rank discovered vertices by cost from the real start plus an estimate to the real goal, and we never allow the current robot position itself to be chosen again.
 
@@ -68,10 +67,7 @@ public:
     void setWeight(T alpha, T beta);
 
 private:
-    Vertex<T> getScanLocation(const Vertex<T> &robotCenter) const;
-
     Polygon<T> _robot, _border, _realRobot;
-    Vertex<T> _cameraOffset; // the offset of the camera from the robot center, which is used to calculate the visible area. We assume the camera is always facing forward and the offset is along the forward direction of the robot.
     std::vector<Polygon<T>> _obstacles;
     int _resolution;
     int _numThreads;

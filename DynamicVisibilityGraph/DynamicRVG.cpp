@@ -1,7 +1,9 @@
 #include "DynamicRVG.h"
 #include <VisibilityGraph/Utils.h>
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <iterator>
 #include <queue>
 #include <Utils/Utils.h>
 
@@ -9,23 +11,19 @@ namespace RotationalVisibilityGraph {
 
 namespace {
 
-template <typename T>
-bool sanitizePolygonForBooleanOps(
-    const Polygon<T> &input,
-    typename Polygon<T>::Polygon_2 &output
+template <typename Point2, typename Polygon2>
+bool sanitizePolygonPointsForBooleanOps(
+    const std::vector<Point2> &inputPoints,
+    Polygon2 &output
 ) {
-    using Polygon2 = typename Polygon<T>::Polygon_2;
-    using Point2 = typename Polygon<T>::Point_2;
-
     output.clear();
-    if (input.size() < 3) {
+    if (inputPoints.size() < 3) {
         return false;
     }
 
     std::vector<Point2> points;
-    points.reserve(input.size());
-    for (const auto &vertex : input.getVertices()) {
-        const Point2 point = vertex.getPoint();
+    points.reserve(inputPoints.size());
+    for (const auto &point : inputPoints) {
         if (!points.empty() && point == points.back()) {
             continue;
         }
@@ -82,6 +80,21 @@ bool sanitizePolygonForBooleanOps(
     return true;
 }
 
+template <typename T>
+bool sanitizePolygonForBooleanOps(
+    const Polygon<T> &input,
+    typename Polygon<T>::Polygon_2 &output
+) {
+    using Point2 = typename Polygon<T>::Point_2;
+
+    std::vector<Point2> points;
+    points.reserve(input.size());
+    for (const auto &vertex : input.getVertices()) {
+        points.push_back(vertex.getPoint());
+    }
+    return sanitizePolygonPointsForBooleanOps(points, output);
+}
+
 template <typename Point2, typename PolygonWithHoles>
 bool pointInsidePolygonWithHoles(
     const Point2 &point,
@@ -100,30 +113,33 @@ bool pointInsidePolygonWithHoles(
     return true;
 }
 
-}
-
-template <typename T>
-void DynamicRVG<T>::setCameraOffset(const Vertex<T> &cameraOffset)
+template <typename T, typename Arrangement2, typename PointLocation, typename VisibilityQuery>
+bool extractVisibleAreaFromScanPoint(
+    const Arrangement2 &env,
+    PointLocation &pointLocation,
+    VisibilityQuery &visibility,
+    const Vertex<T> &scanLocation,
+    typename Polygon<T>::Polygon_2 &visibleArea
+)
 {
-    _cameraOffset = cameraOffset;
-}
-
-template <typename T>
-Vertex<T> DynamicRVG<T>::getScanLocation(const Vertex<T> &robotCenter) const
-{
-    T offsetX = _cameraOffset.getX();
-    T offsetY = _cameraOffset.getY();
-    if (robotCenter.hasTheta()) {
-        const T theta = robotCenter.getTheta();
-        const T rotatedOffsetX = offsetX * std::cos(theta) - offsetY * std::sin(theta);
-        const T rotatedOffsetY = offsetX * std::sin(theta) + offsetY * std::cos(theta);
-        offsetX = rotatedOffsetX;
-        offsetY = rotatedOffsetY;
+    (void) env;
+    Arrangement2 visibleAreaArrangement;
+    auto obj = pointLocation.locate(scanLocation.getPoint());
+    auto face = boost::get<typename Arrangement2::Face_const_handle>(&obj);
+    if (!face) {
+        return false;
     }
 
-    Vertex<T> scanLocation(robotCenter);
-    scanLocation.setPos(robotCenter.getX() + offsetX, robotCenter.getY() + offsetY);
-    return scanLocation;
+    auto visibleFace = visibility.compute_visibility(scanLocation.getPoint(), *face, visibleAreaArrangement);
+    std::vector<typename Polygon<T>::Point_2> boundary;
+    auto edge = visibleFace->outer_ccb();
+    do {
+        boundary.push_back(edge->source()->point());
+        ++edge;
+    } while (edge != visibleFace->outer_ccb());
+    return sanitizePolygonPointsForBooleanOps(boundary, visibleArea);
+}
+
 }
 
 template <typename T>
@@ -133,34 +149,91 @@ const Polygon<T> &DynamicRVG<T>::scanVisibleArea(const Vertex<T> & currentLocati
     map.reserve(this->_obstacles.size() + 1);
     for (const auto &obs : this->_obstacles) map.push_back(obs.getPolygon());
     map.push_back(this->_border.getPolygon());
-    Arrangement_2 env = obsToArrangement<T>(map), visibleArea;
+    Arrangement_2 env = obsToArrangement<T>(map);
     PL_2 pointLocation(env);
-    const Vertex<T> scanLocation = getScanLocation(currentLocation);
-    auto obj = pointLocation.locate(scanLocation.getPoint());
-    auto face = boost::get<Arrangement_2::Face_const_handle>(&obj);
-    if (!face) {
-        _visibleAreaInMap = Polygon<T>();
-        return _visibleAreaInMap;
-    }
-    //TODO: make this a class member and reuse it across iterations to save time. We just need to update the arrangement with new obstacles when we discover them, and we can use the same visibility object to compute visibility.
     VQ visibility(env);
-    Face_handle visibleFace = visibility.compute_visibility(scanLocation.getPoint(), *face, visibleArea);
-    std::vector<Vertex<T>> boundary;
-    /*TODO: Build a convex hull for the robot at the current location
-        Use a for loop to make scans at all corners of the convex hull
-        Merge all the visible areas together to get the final visible area. This can help us mitigate the issue of missing narrow passages when the robot is large and the camera is at the center.
-    */
-    auto edge = visibleFace->outer_ccb();
-    do {
-        const auto &point = edge->source()->point();
-        boundary.emplace_back(CGAL::to_double(point.x()), CGAL::to_double(point.y()));
-        ++edge;
-    } while (edge != visibleFace->outer_ccb());
-    if (boundary.size() < 3) {
+    Polygon_2 visibleArea;
+    if (!extractVisibleAreaFromScanPoint<T>(env, pointLocation, visibility, currentLocation, visibleArea)) {
         _visibleAreaInMap = Polygon<T>();
         return _visibleAreaInMap;
     }
-    _visibleAreaInMap = Polygon<T>(boundary, false);
+    _visibleAreaInMap = Polygon<T>(visibleArea);
+    return _visibleAreaInMap;
+}
+
+template <typename T>
+const Polygon<T> &DynamicRVG<T>::scanFromAllVertices(const Vertex<T> & currentLocation)
+{
+    std::vector<Polygon_2> map;
+    map.reserve(this->_obstacles.size() + 1);
+    for (const auto &obs : this->_obstacles) {
+        map.push_back(obs.getPolygon());
+    }
+    map.push_back(this->_border.getPolygon());
+
+    Arrangement_2 env = obsToArrangement<T>(map);
+    PL_2 pointLocation(env);
+    VQ visibility(env);
+    std::vector<Polygon_2> visibleAreas;
+    const T robotTheta = currentLocation.hasTheta() ? currentLocation.getTheta() : static_cast<T>(0);
+    const Polygon<T> robotFootprint = this->_robot.moveToCopy(
+        currentLocation.getX(),
+        currentLocation.getY(),
+        robotTheta
+    );
+    const T scanInsetFraction = static_cast<T>(1e-6);
+
+    for (const auto &robotVertex : robotFootprint.getVertices()) {
+        Vertex<T> scanLocation(robotVertex);
+        const T dx = currentLocation.getX() - robotVertex.getX();
+        const T dy = currentLocation.getY() - robotVertex.getY();
+        scanLocation.setPos(
+            robotVertex.getX() + dx * scanInsetFraction,
+            robotVertex.getY() + dy * scanInsetFraction
+        );
+
+        Polygon_2 visibleAreaAtVertex;
+        if (!extractVisibleAreaFromScanPoint<T>(env, pointLocation, visibility, scanLocation, visibleAreaAtVertex)) {
+            continue;
+        }
+        visibleAreas.push_back(visibleAreaAtVertex);
+    }
+
+    if (visibleAreas.empty()) {
+        _visibleAreaInMap = Polygon<T>();
+        return _visibleAreaInMap;
+    }
+
+    std::vector<Polygon_with_holes_2> visibleRegions;
+    CGAL::join(visibleAreas.begin(), visibleAreas.end(), std::back_inserter(visibleRegions));
+    if (visibleRegions.empty()) {
+        _visibleAreaInMap = Polygon<T>();
+        return _visibleAreaInMap;
+    }
+
+    const auto containsRobot = [&](const Polygon_with_holes_2 &region) {
+        if (pointInsidePolygonWithHoles(currentLocation.getPoint(), region)) {
+            return true;
+        }
+        return std::any_of(
+            robotFootprint.getVertices().begin(),
+            robotFootprint.getVertices().end(),
+            [&](const Vertex<T> &robotVertex) {
+                return pointInsidePolygonWithHoles(robotVertex.getPoint(), region);
+            }
+        );
+    };
+    const auto regionIt = std::find_if(visibleRegions.begin(), visibleRegions.end(), containsRobot);
+    const Polygon_with_holes_2 &selectedRegion = regionIt != visibleRegions.end()
+        ? *regionIt
+        : visibleRegions.front();
+
+    if (selectedRegion.outer_boundary().size() < 3) {
+        _visibleAreaInMap = Polygon<T>();
+        return _visibleAreaInMap;
+    }
+
+    _visibleAreaInMap = Polygon<T>(selectedRegion.outer_boundary());
     return _visibleAreaInMap;
 }
 
@@ -641,7 +714,6 @@ void DynamicRVG<T>::drawVisibleArea(const std::string &name) const { // visualiz
     appendPolygon(_visibleAreaInMap, "goldenrod", "gold", 0.35, 1.5);
 
     const Vertex<T> &current = (this->_start && this->_start->hasTheta()) ? *this->_start : this->_robot.getCentroid();
-    const Vertex<T> scanLocation = getScanLocation(current);
     const T robotTheta = current.hasTheta() ? current.getTheta() : static_cast<T>(0);
     const Polygon<T> robotFootprint = this->_robot.moveToCopy(
         current.getX(),
@@ -651,11 +723,6 @@ void DynamicRVG<T>::drawVisibleArea(const std::string &name) const { // visualiz
     appendPolygon(robotFootprint, "crimson", "mistyrose", 0.30, 1.2);
     pythonScript += "ax.plot([" + std::to_string(current.getX()) + "], [" + std::to_string(current.getY()) +
                     "], 'o', color='crimson', markersize=5)\n";
-    if (current.dist(scanLocation) > 1e-5) {
-        pythonScript += "ax.plot([" + std::to_string(scanLocation.getX()) + "], [" +
-                        std::to_string(scanLocation.getY()) +
-                        "], 'x', color='darkorange', markersize=6, markeredgewidth=2)\n";
-    }
 
     pythonScript += "ax.set_aspect('equal', adjustable='box')\n";
     pythonScript += "plt.title('Visible area')\n";
@@ -736,7 +803,6 @@ std::string DynamicRVG<T>::drawIteration(const std::string &name, const std::sha
     }
 
     const Vertex<T> &start = (this->_start && this->_start->hasTheta()) ? *this->_start : this->_robot.getCentroid();
-    const Vertex<T> scanLocation = getScanLocation(start);
     const T robotTheta = start.hasTheta() ? start.getTheta() : static_cast<T>(0);
     const Polygon<T> robotFootprint = this->_robot.moveToCopy(
         start.getX(),
@@ -748,14 +814,6 @@ std::string DynamicRVG<T>::drawIteration(const std::string &name, const std::sha
                     "], 'o', color='crimson', markersize=5)\n";
     pythonScript += "ax.text(" + std::to_string(start.getX()) + ", " + std::to_string(start.getY()) +
                     ", ' start', color='crimson', fontsize=8)\n";
-    if (start.dist(scanLocation) > 1e-5) {
-        pythonScript += "ax.plot([" + std::to_string(scanLocation.getX()) + "], [" +
-                        std::to_string(scanLocation.getY()) +
-                        "], 'x', color='darkorange', markersize=6, markeredgewidth=2)\n";
-        pythonScript += "ax.text(" + std::to_string(scanLocation.getX()) + ", " +
-                        std::to_string(scanLocation.getY()) +
-                        ", ' camera', color='darkorange', fontsize=8)\n";
-    }
 
     if (this->_goal && this->_goal->hasTheta()) {
         pythonScript += "ax.plot([" + std::to_string(this->_goal->getX()) + "], [" +
