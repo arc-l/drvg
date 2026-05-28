@@ -33,6 +33,7 @@ class Graph {
   void draw(const std::string &figPath, bool show=false);
   void draw3D(const std::string &figPath, bool show=false);
   void buildEdges();
+  std::string draw(const std::string &axisName) const;
   std::string draw() const;
   ~Graph() = default;
 

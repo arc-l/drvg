@@ -225,16 +225,30 @@ void Graph<T>::draw3D(const std::string &figPath, bool show){
 
 template<typename T>
 std::string Graph<T>::draw() const {
+  return draw("ax");
+}
+
+template<typename T>
+std::string Graph<T>::draw(const std::string &axisName) const {
   std::string pythonScript;
-  for (const auto &edge : this->getEdges()) {
+  std::unordered_set<Edge<T>, typename Edge<T>::Hash> edges;
+  for (const auto &entry : this->getAdjacencyList()) {
+    const auto &vertex = entry.first;
+    const auto &neighbors = entry.second;
+    for (const auto &neighbor : neighbors) {
+      edges.insert(Edge<T>(*vertex, *neighbor));
+    }
+  }
+
+  for (const auto &edge : edges) {
     std::vector<T> edgeX = edge.getX(), edgeY = edge.getY();
     pythonScript +=
-        "ax.plot([" + std::to_string(edgeX[0]) + ", " + std::to_string(edgeX[1]) + "], [" + std::to_string(edgeY[0])
+        axisName + ".plot([" + std::to_string(edgeX[0]) + ", " + std::to_string(edgeX[1]) + "], [" + std::to_string(edgeY[0])
             + ", " + std::to_string(edgeY[1]) + "], '-', color='lightcoral', linewidth=0.5)\n";
   }
   for (const auto &v : this->getVertices()) {
     pythonScript +=
-        "ax.plot(" + std::to_string(v->getX()) + ", " + std::to_string(v->getY())
+        axisName + ".plot(" + std::to_string(v->getX()) + ", " + std::to_string(v->getY())
             + ", 'o', color='bisque', markersize=0.5)\n";
   }
   return pythonScript;

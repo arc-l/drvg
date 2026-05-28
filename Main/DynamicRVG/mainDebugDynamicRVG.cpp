@@ -92,6 +92,13 @@ int main(int argc, char *argv[]) {
 
   DynamicRVG<T> dynamicRVG(robot, map, obstacles, resolution, numThreads);
   dynamicRVG.setWeight(1.0, 0.1);
+  if (!figPath.empty()) {
+    const std::string outputName = std::filesystem::path(figPath).stem().string();
+    dynamicRVG.setWriteIterationVisualizations(true);
+    dynamicRVG.setIterationVisualizationTag(
+        outputName + "_" + plannerMode + (useScanFromAllVertices ? "_all_vertices" : "_center_scan")
+    );
+  }
 
   const bool planned = plannerMode == "incremental"
                            ? dynamicRVG.planIncrementalMapping(start, goal, useScanFromAllVertices)

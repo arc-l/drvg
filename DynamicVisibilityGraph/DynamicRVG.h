@@ -10,6 +10,23 @@ namespace RotationalVisibilityGraph {
 
 template <typename T>
 class DynamicRVG{
+    DECL_CGAL_CARTESIAN_TYPES_T
+    DECL_CGAL_POLYGON_TYPES_T
+    DECL_CGAL_VISIBILITY_GRAPH_TYPES_T
+
+    static Arrangement_2 buildScanEnvironment(
+        const Polygon<T> &border,
+        const std::vector<Polygon<T>> &obstacles
+    ) {
+        std::vector<Polygon_2> map;
+        map.reserve(obstacles.size() + 1);
+        for (const auto &obstacle : obstacles) {
+            map.push_back(obstacle.getPolygon());
+        }
+        map.push_back(border.getPolygon());
+        return obsToArrangement<T>(map);
+    }
+
 public:
     DynamicRVG(
         const Polygon<T> &robot,
@@ -17,7 +34,16 @@ public:
         const std::vector<Polygon<T>> &obstacles, 
         const T &resolution, 
         const int &numThreads
-    ): _robot(robot), _border(border), _obstacles(obstacles), _resolution(resolution), _numThreads(numThreads), _alpha(1), _beta(0){}
+    ): _robot(robot),
+       _border(border),
+       _obstacles(obstacles),
+       _scanEnvironment(buildScanEnvironment(border, obstacles)),
+       _pointLocation(_scanEnvironment),
+       _visibility(_scanEnvironment),
+       _resolution(resolution),
+       _numThreads(numThreads),
+       _alpha(1),
+       _beta(0){}
     ~DynamicRVG() = default;
 
     const Polygon<T> &scanVisibleArea(const Vertex<T> & currentLocation); // scan the environment at the current robot location from the robot center and return the visible polygon
@@ -73,21 +99,40 @@ public:
     void setGoal(const std::shared_ptr<Vertex<T>> &goal);
     void setGraph(const Graph<T>& graph);
     void setWeight(T alpha, T beta);
+    void setWriteIterationVisualizations(bool enabled);
+    void setIterationVisualizationTag(const std::string &tag);
 
 private:
     Polygon<T> _robot, _border, _realRobot;
     std::vector<Polygon<T>> _obstacles;
+    Arrangement_2 _scanEnvironment;
+    PL_2 _pointLocation;
+    VQ _visibility;
     int _resolution;
     int _numThreads;
     T _alpha, _beta;
     Graph<T> _graph;
     Polygon<T> _visibleAreaInMap;
+    Polygon_with_holes_2 _visibleAreaWithHoles;
+    bool _hasVisibleAreaWithHoles = false;
     Polygon<T> _mappedBorder;
     std::vector<Polygon<T>> _mappedObstacles;
     std::shared_ptr<Vertex<T>> _start, _goal;
     std::unordered_set<std::shared_ptr<Vertex<T>>, typename Vertex<T>::SharedPtrVertexHash, typename Vertex<T>::SharedPtrVertexEqual> _exploredVertices;
     std::vector<std::shared_ptr<Vertex<T>>> _explorationPath;
     std::vector<std::shared_ptr<Vertex<T>>> _shortestPath; // The shortest path from the start and goal based the current RVG, which is gradually built.
+    std::shared_ptr<Vertex<T>> _debugCurrentLocation;
+    std::vector<Vertex<T>> _debugScanLocations;
+    std::vector<Polygon<T>> _debugVisibleAreas;
+    std::vector<Polygon_with_holes_2> _debugMergedVisibleAreas;
+    Polygon<T> _debugIterationBorder;
+    std::vector<Polygon<T>> _debugIterationObstacles;
+    Graph<T> _debugIterationGraph;
+    bool _debugStartAddedToIterationGraph = false;
+    bool _debugGoalAddedToIterationGraph = false;
+    bool _debugDirectGoalConnection = false;
+    bool _writeIterationVisualizations = false;
+    std::string _iterationVisualizationTag;
 };
 
 }
