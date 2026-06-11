@@ -1,4 +1,4 @@
-# drvg — Dynamic Rotation-Stacked Visibility Graph (DRVG)
+# Dynamic Rotation-Stacked Visibility Graph (DRVG)
 
 > Repository: `git@github.com:arc-l/drvg.git`
 
