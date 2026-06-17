@@ -9,12 +9,14 @@
             // Resolved by CMake Tools:
             "program": "${command:cmake.buildDirectory}/mainRVGConfigRun",
             "args": [
-                "../Configs/corridor.xml",
+                // "../Configs/corridor.xml",
+                // "../Configs/mapfixedStartAndGoalHardSmall1.xml",
+                "../Configs/dynamic_rvg_plan_iteration_3.xml",
                 // "../Configs/corridor_star.xml",
                 // "../scripts/manim_vis/manimConfig.xml",
                 // "../Configs/env1.xml",
-                "72",
-                "24",
+                "18",
+                "1",
                 "../Results/corridor.gif"
             ],
             "stopAtEntry": false,
@@ -592,14 +594,17 @@
             "program": "${command:cmake.buildDirectory}/mainDebugDynamicRVG",
             "args": [
                 // "../Configs/corridor_star.xml",
-                // "../Configs/mapfixedStartAndGoalSmall1.xml",
+                "../Configs/mapfixedStartAndGoalHardSmall1.xml",
                 // "../Configs/env1.xml",
-                "../Configs/corridor.xml",
-                "720",
+                // "../Configs/corridor.xml",
+                "18",
                 "24",
                 // "../Results/mapfixedStartAndGoalSmall1.png"
-                "../Results/corridor.png",
-                "incremental"
+                "../Results/mapfixedStartAndGoalHardSmall1.png",
+                // "../Results/corridor.png",
+                // "plan",
+                "incremental",
+                // "--scan-from-all-vertices"
             ],
             "stopAtEntry": false,
             "cwd": "${command:cmake.buildDirectory}",

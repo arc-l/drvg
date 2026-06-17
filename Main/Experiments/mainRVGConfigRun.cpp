@@ -12,6 +12,19 @@ DECL_CGAL_CARTESIAN_TYPES_T
 DECL_CGAL_POLYGON_TYPES_T
 DECL_CGAL_VISIBILITY_GRAPH_TYPES_T
 
+namespace {
+
+template <typename U>
+size_t graphEdgeCount(const Graph<U> &graph) {
+  size_t degreeSum = 0;
+  for (const auto &entry : graph.getAdjacencyList()) {
+    degreeSum += entry.second.size();
+  }
+  return degreeSum / 2;
+}
+
+}
+
 int main(int argc, char *argv[]) {
   if (argc < 3) throw std::runtime_error("No input file provided");
   tinyxml2::XMLDocument pt;
@@ -60,6 +73,9 @@ int main(int argc, char *argv[]) {
   print("RVG BuildTime(s): ", rvgBuildTime);
   print("RVG SearchTime(s):", rvgSearchTime);
   print("RVG Path Length:  ", distsRVG);
+  const Graph<T> &graph = visibilityGraph.getGraph();
+  print("RVG #vertices:", graph.getVertices().size());
+  print("RVG #edges:", graphEdgeCount(graph));
   // visibilityGraph.drawVisibleAreas();
 //  visibilityGraph.debugMaxPropagation();
   if(figPath.empty()) return 0;
@@ -71,7 +87,7 @@ int main(int argc, char *argv[]) {
   //   std::string layerFigPath = figPath.substr(0, figPath.find_last_of('.')) + "_layer_" + std::to_string(i) + ".png";
   //   layer.draw(layerFigPath, map, obstacles, nullptr, false);
   // }
-  visibilityGraph.draw(figPath, false, true, false, false, -1);
+  visibilityGraph.draw(figPath, false, true, true, false, -1);
   // visibilityGraph.draw3D(false);
   return 0;
 

@@ -64,19 +64,21 @@ class Layer {
   Polygon<T> getRobotBBoxInverted() const;
 
  private:
-  bool _fineApprox;
-  bool _simplifiedGeometry;
-  bool _hasHoles;
-  bool _borderIsHole;
+  bool _fineApprox = false;
+  bool _simplifiedGeometry = false;
+  bool _hasHoles = false;
+  bool _borderIsHole = false;
   std::vector<bool> _bordersAreHoles;
-  bool _infeasible;
-  T _theta_lb, _theta_ub;
+  bool _infeasible = false;
+  T _theta_lb = 0;
+  T _theta_ub = 0;
   std::shared_ptr<VQ> _vq, _holeVQ;
   std::vector<Vertex<T>> _vertices;
   std::vector<Point_2> _points, _holePoints;
   std::vector<Vertex_const_handle> _vertexHandles;
   std::vector<Polygon_2> _grownObs;
   std::vector<Polygon_2> _holes;
+  std::vector<Polygon_2> _borderHoles;
   std::vector<std::pair<std::shared_ptr<Vertex<T>>, std::shared_ptr<Vertex<T>>>> _edges;
   Polygon<T> _shrunkBorder, _robotBBox, _robotBBoxInverted;
   std::vector<Polygon<T>> _shrunkBorders;

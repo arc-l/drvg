@@ -89,6 +89,9 @@ void VisibilityGraph<T>::_buildLayers() {
       T second = (i + 1) * 2 * M_PI / _resolution;
       Layer<T> layer(first, second, _fineApprox, false);
       layer.buildVisibilityGraph(_robot, _border, _obstacles);
+      // Graph<T> layerGraph;
+      // layerGraph.addEdges(layer.getEdges());
+      // layer.draw("../Results/layer_" + std::to_string(i) + ".png", _border, _obstacles, &layerGraph, false);
       OMP_CRITICAL_ {
         _layers[i] = layer;
         _graph.addEdges(layer.getEdges());
@@ -127,6 +130,20 @@ void VisibilityGraph<T>::_buildLayers() {
   if (_verbose)
     Utils::print("Time for building all layers take ", buildTimer.elapsed(),
                  "s");
+  if (_verbose) {
+    for (size_t i = 0; i < _layers.size(); ++i) {
+      Utils::print(
+          "Initial layer", i,
+          "#points:", _layers[i].getPoints().size(),
+          "#edges:", _layers[i].getEdges().size(),
+          "#grownObs:", _layers[i].getGrownObs().size(),
+          "#holes:", _layers[i].getHoles().size(),
+          "feasible:", _layers[i].isFeasible()
+      );
+    }
+    Utils::print("Initial graph #vertices:", _graph.getVertices().size());
+    Utils::print("Initial graph #edges:", _graph.getEdges().size());
+  }
   Utils::Timer connectTimer("Connect Layers", false);
   _connectLayers();
   if (_verbose)
@@ -469,7 +486,8 @@ void VisibilityGraph<T>::_addStartAndGoal(std::shared_ptr<Vertex<T>> start, std:
   std::vector<Polygon_2> goalVisibleAreaVec(_layers.size());
   std::vector<std::shared_ptr<Vertex<T>>> startInLayerVec(_layers.size(), nullptr);
   std::vector<std::shared_ptr<Vertex<T>>> goalInLayerVec(_layers.size(), nullptr);
-  size_t startLayerIndex, goalLayerIndex;
+  size_t startLayerIndex = 0;
+  size_t goalLayerIndex = 0;
 
   // find the layer that contains the start vertex and initialize the visible area
   OMP_PARALLEL_FOR_XI(_numThreads, default(none) shared(directConnection, start, goal, startLegalVec, goalLegalVec, startVisibleAreaVec, goalVisibleAreaVec, startInLayerVec, goalInLayerVec, startLayerIndex, goalLayerIndex))
@@ -515,7 +533,8 @@ void VisibilityGraph<T>::_addStartAndGoal(std::shared_ptr<Vertex<T>> start, std:
     bool allAvailable = true;
     auto & legalVec = isGoal ? goalLegalVec : startLegalVec;
     const auto & vertexInLayerVec = isGoal ? goalInLayerVec : startInLayerVec;
-    int forwardStopIndex, backwardStopIndex;
+    int forwardStopIndex = id;
+    int backwardStopIndex = id;
     for(int i = 0; i < _layers.size(); i++){
       int currIndex = (id + i) % _layers.size();
       int prevIndex = (id + i - 1) % _layers.size();
