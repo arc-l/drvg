@@ -82,6 +82,7 @@ class Layer {
   std::vector<std::pair<std::shared_ptr<Vertex<T>>, std::shared_ptr<Vertex<T>>>> _edges;
   Polygon<T> _shrunkBorder, _robotBBox, _robotBBoxInverted;
   std::vector<Polygon<T>> _shrunkBorders;
+  Polygon_2 _shrunkBorderExact;
   std::vector<Segment_2> _segments;
   Polygon_with_holes_2 _complementBorder;
   Arrangement_2 _env;

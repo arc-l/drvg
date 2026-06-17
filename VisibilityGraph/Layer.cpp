@@ -79,6 +79,7 @@ Layer<T>::Layer(const Layer<T> &layer)
       _robotBBox(layer._robotBBox),
       _robotBBoxInverted(layer._robotBBoxInverted),
       _shrunkBorders(layer._shrunkBorders),
+      _shrunkBorderExact(layer._shrunkBorderExact),
       _segments(layer._segments),
       _complementBorder(layer._complementBorder),
       _env(layer._env),
@@ -318,7 +319,12 @@ void Layer<T>::_shrinkBorder(const Polygon<T> &border) {
       continue;
     }
     _shrunkBorders.push_back(shrunkBorder);
+    if (_shrunkBorderExact.is_empty()) {
+      _shrunkBorderExact = hole;
+    }
   }
+  Utils::print("#shrunk borders for layer [", _theta_lb, ", ", _theta_ub, "]: ", _shrunkBorders.size());
+  Utils::print("#_borderHoles for layer [", _theta_lb, ", ", _theta_ub, "]: ", _borderHoles.size());
   if (_complementBorder.number_of_holes() == 0 || _shrunkBorders.empty()) {
     _infeasible = true;
     return;
@@ -422,6 +428,7 @@ void Layer<T>::_buildMap(const std::vector<Polygon<T>> &obstacles) {
           continue;
         }
         _shrunkBorder = shrunkBorder;
+        _shrunkBorderExact = newHole;
         holeIsBorder = true;
       }
     } else {
@@ -461,11 +468,15 @@ void Layer<T>::_buildMap(const std::vector<Polygon<T>> &obstacles) {
       return;
     }
     _shrunkBorder = shrunkBorder;
+    _shrunkBorderExact = holes[maxHoleId];
+    if (_shrunkBorderExact.is_clockwise_oriented()) {
+      _shrunkBorderExact.reverse_orientation();
+    }
   }
 
   if (!_grownObs.empty() && isUsablePolygon(_shrunkBorder)) {
     std::vector<Polygon_2> polygons = _grownObs;
-    polygons.push_back(_shrunkBorder.getCounterClockWise());
+    polygons.push_back(_shrunkBorderExact.is_empty() ? _shrunkBorder.getCounterClockWise() : _shrunkBorderExact);
     for (const Polygon_2 &polygon : polygons) {
       for (const auto &edge : polygon.edges()) {
         if (edge.squared_length() < RVG_EPS) Utils::print("Env Edge with small length: ", edge, " distance = ", std::to_string(std::sqrt(CGAL::to_double(edge.squared_length()))));
@@ -492,6 +503,7 @@ void Layer<T>::_connectVisibleVertices() {
   _vq = std::make_shared<VQ>(_env);
   PL_2 envPL(_env);
   for (const auto &v : _env.vertex_handles()) {
+    // print out v
     Arrangement_2 visibleArea;
     if (_isOnBorder(v->point())) {
       if (!_isReflex(v, false, true)) continue;
@@ -661,21 +673,7 @@ bool Layer<T>::_isReflex(const Vertex_const_handle &v, bool isHoleVertex, bool i
 
 template<typename T>
 bool Layer<T>::_isOnBorder(const Point_2 &v) const {
-  // const auto &mapBorder = _shrunkBorder.getCounterClockWise();
-  // return CGAL::bounded_side_2(mapBorder.begin(), mapBorder.end(), v, K()) == CGAL::ON_BOUNDARY;
-  // for (const auto & border: _shrunkBorders) {
-  //   const auto &mapBorder = border.getCounterClockWise();
-  //   if (CGAL::bounded_side_2(mapBorder.begin(), mapBorder.end(), v, K()) == CGAL::ON_BOUNDARY) {
-  //     return true;
-  //   }
-  // }
-  // bool vertexWeWant = false;
-  // if (v.x() > 10 && v.x() < 15 && v.y() < -10 && v.y() > -15) vertexWeWant = true;
-  // if (vertexWeWant) Utils::print("Checking if vertex ", v, " is on border");
-  size_t holeIndex = 0;
   for (const auto &hole : _borderHoles) {
-    const CGAL::Bounded_side result = CGAL::bounded_side_2(hole.vertices_begin(), hole.vertices_end(), v, K());
-    // if (vertexWeWant) {
     //   Point_2 closestVertex;
     //   double closestSquaredDistance = std::numeric_limits<double>::max();
     //   bool closestExactEqual = false;
@@ -687,20 +685,19 @@ bool Layer<T>::_isOnBorder(const Point_2 &v) const {
     //       closestExactEqual = vertex == v;
     //     }
     //   }
-      // Utils::print(
-      //     "Border hole", holeIndex,
-      //     "query", v,
-      //     "bounded_side_2(query)", result,
-      //     "on boundary:", result == CGAL::ON_BOUNDARY,
-      //     "closest vertex:", closestVertex,
-      //     "closest squared distance:", closestSquaredDistance,
-      //     "closest exact equal:", closestExactEqual
-      // );
+    //   auto result = CGAL::bounded_side_2(hole.vertices_begin(), hole.vertices_end(), v, K());
+    //   Utils::print(
+    //       "query", v,
+    //       "bounded_side_2(query)", result,
+    //       "on boundary:", result == CGAL::ON_BOUNDARY,
+    //       "closest vertex:", closestVertex,
+    //       "closest squared distance:", closestSquaredDistance,
+    //       "closest exact equal:", closestExactEqual
+    //   );
+    // if (result == CGAL::ON_BOUNDARY) {
+    //   return true;
     // }
-    if (result == CGAL::ON_BOUNDARY) {
-      return true;
-    }
-    ++holeIndex;
+    return CGAL::bounded_side_2(hole.vertices_begin(), hole.vertices_end(), v, K()) == CGAL::ON_BOUNDARY;
   }
   return false;
 }

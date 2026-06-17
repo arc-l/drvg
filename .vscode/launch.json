@@ -10,8 +10,8 @@
             "program": "${command:cmake.buildDirectory}/mainRVGConfigRun",
             "args": [
                 // "../Configs/corridor.xml",
-                // "../Configs/mapfixedStartAndGoalHardSmall1.xml",
-                "../Configs/dynamic_rvg_plan_iteration_3.xml",
+                "../Configs/mapfixedStartAndGoalHardSmall1.xml",
+                // "../Configs/dynamic_rvg_plan_iteration_3.xml",
                 // "../Configs/corridor_star.xml",
                 // "../scripts/manim_vis/manimConfig.xml",
                 // "../Configs/env1.xml",
