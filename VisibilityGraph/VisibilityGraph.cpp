@@ -89,9 +89,9 @@ void VisibilityGraph<T>::_buildLayers() {
       T second = (i + 1) * 2 * M_PI / _resolution;
       Layer<T> layer(first, second, _fineApprox, false);
       layer.buildVisibilityGraph(_robot, _border, _obstacles);
-      // Graph<T> layerGraph;
-      // layerGraph.addEdges(layer.getEdges());
-      // layer.draw("../Results/layer_" + std::to_string(i) + ".png", _border, _obstacles, &layerGraph, false);
+      Graph<T> layerGraph;
+      layerGraph.addEdges(layer.getEdges());
+      layer.draw("../Results/layer_" + std::to_string(i) + ".png", _border, _obstacles, &layerGraph, false);
       OMP_CRITICAL_ {
         _layers[i] = layer;
         _graph.addEdges(layer.getEdges());

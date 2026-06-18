@@ -111,11 +111,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  if (!figPath.empty()) {
-    const std::string outputName = std::filesystem::path(figPath).stem().string();
-    const std::string scriptPath = dynamicRVG.drawFullPathAndEndGraph(outputName);
-    RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(scriptPath);
-  }
+  // if (!figPath.empty()) {
+  //   const std::string outputName = std::filesystem::path(figPath).stem().string();
+  //   const std::string scriptPath = dynamicRVG.drawFullPathAndEndGraph(outputName);
+  //   RotationalVisibilityGraph::Utils::runPythonScriptAndRemove<T>(scriptPath);
+  // }
 
   return 0;
 }

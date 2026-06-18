@@ -651,23 +651,44 @@ bool Layer<T>::_isReflex(const Vertex_const_handle &v, bool isHoleVertex, bool i
   typename Arrangement_2::Halfedge_around_vertex_const_circulator first, curr;
   first = curr = v->incident_halfedges();
   while (true) {
-    if (curr->is_on_outer_ccb())
+    if (curr->is_on_outer_ccb()) {
       vl = curr->source()->point();
-    if (curr->is_on_inner_ccb())
+    }
+    if (curr->is_on_inner_ccb()) {
       vr = curr->source()->point();
+    }
     curr++;
     if (curr == first)
       break;
   }
   bool isReflex;
-  if (isHoleVertex || isOnBorder) {
-    isReflex = CGAL::right_turn(vl, v->point(), vr);
-    // isReflex = CGAL::left_turn(vl, v->point(), vr);
-    _isReflexCache.insert({p, isReflex});
-  } else {
-    isReflex = CGAL::left_turn(vl, v->point(), vr);
-    _isReflexCache.insert({p, isReflex});
+  if (_borderIsHole){
+    if (isOnBorder){
+      isReflex = CGAL::right_turn(vl, v->point(), vr);
+      _isReflexCache.insert({p, isReflex});
+    } else {
+      isReflex = CGAL::left_turn(vl, v->point(), vr);
+      _isReflexCache.insert({p, isReflex});
+    }
   }
+  else{
+    if (isHoleVertex || isOnBorder) {
+      isReflex = CGAL::right_turn(vl, v->point(), vr);
+      // isReflex = CGAL::left_turn(vl, v->point(), vr);
+      _isReflexCache.insert({p, isReflex});
+    } else {
+      isReflex = CGAL::left_turn(vl, v->point(), vr);
+      _isReflexCache.insert({p, isReflex});
+    }
+  }
+  // if (isHoleVertex || isOnBorder) {
+  //   isReflex = CGAL::right_turn(vl, v->point(), vr);
+  //   // isReflex = CGAL::left_turn(vl, v->point(), vr);
+  //   _isReflexCache.insert({p, isReflex});
+  // } else {
+  //   isReflex = CGAL::left_turn(vl, v->point(), vr);
+  //   _isReflexCache.insert({p, isReflex});
+  // }
   return isReflex;
 }
 
@@ -694,10 +715,8 @@ bool Layer<T>::_isOnBorder(const Point_2 &v) const {
     //       "closest squared distance:", closestSquaredDistance,
     //       "closest exact equal:", closestExactEqual
     //   );
-    // if (result == CGAL::ON_BOUNDARY) {
-    //   return true;
-    // }
-    return CGAL::bounded_side_2(hole.vertices_begin(), hole.vertices_end(), v, K()) == CGAL::ON_BOUNDARY;
+    if (CGAL::bounded_side_2(hole.vertices_begin(), hole.vertices_end(), v, K()) == CGAL::ON_BOUNDARY)
+      return true;
   }
   return false;
 }
