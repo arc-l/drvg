@@ -6,6 +6,11 @@
 \usepackage{graphicx}
 \usepackage{hyperref}
 
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Cfree}{\mathcal{C}_{\mathrm{free}}}
+\newcommand{\Obs}{\mathcal{O}}
+\newcommand{\D}{\mathcal{D}}
+
 \title{Dynamic Rotation-Stacked Visibility Graph (DRVG)}
 \author{}
 \date{}
@@ -17,8 +22,97 @@
 \end{abstract}
 
 % ----------------------------------------------------------------------------
-% Body
+% Proof Sketch
+% Here we present a rigorous proof of the completeness of our algorithm. We show that as long as the robot 
+% is star-shaped with regards to the center, and we have a high enough resolution, our algorithm will always 
+% find a solution if one exists. Note that any convex robot is always star-shaped with regards to the center.\\
+% We shall prove this in three steps. First, show that the robot can see every configuration it can move to. 
+% Second, note that any two rotations in succession is a single rotation. Therefore, the robot will never move 
+% two rotations in succession.
+% Third, every straight line move will either move to an obstacle vertex, of which there are a globally 
+% finite number of, the goal, of which there is only one, or a dynamic vertex. We can show that every move to a 
+% dynamic vertex will reveal new area (since it is on a point visibility graph), and thus we will discover the 
+% entire environment in a finite number of steps.
+% Finally, the visibility graph of entire environment is trivially unique, and we assumed it's completeness.
 % ----------------------------------------------------------------------------
+\section{Convex Case}
+Let \(W\subset \R^2\) be a compact polygonal workspace with finitely many
+polygonal obstacles \(\Obs\), and let \(R\) be a polygonal robot whose reference
+point \(c\) is its center. Assume that \(R\) is star-shaped with respect to
+\(c\). Fix a rotational resolution \(n\) large enough that the corresponding
+fully known RVG planner is resolution-complete under its usual clearance
+assumptions.
+
+We aim to prove that if a feasible path from \(q_s\) to \(q_g\) exists in the component covered
+by the resolution-completeness hypothesis, the online planner returns a feasible
+path from \(q_s\) to \(q_g\) after finitely many primitive moves.
+
+Let $R_\theta$ denote the footprint of the robot at orientation $\theta$,
+centered at the origin. Since $R$ is star-shaped with respect to its center,
+for every $p\in R_\theta$ and every $\lambda\in[0,1]$, we have
+$\lambda p\in R_\theta$.
+
+First, consider a collision-free straight translation at fixed orientation
+$\theta$, moving the center from $a$ to $b$. For any point $b+p$ of the
+final footprint, where $p\in R_\theta$, the segment from $a$ to $b+p$ is
+\[
+    \gamma(\lambda)
+    = a+\lambda(b-a+p)
+    = a+\lambda(b-a)+\lambda p,
+    \qquad \lambda\in[0,1].
+\]
+Because $\lambda p\in R_\theta$, the point $\gamma(\lambda)$ lies in the
+robot footprint centered at $a+\lambda(b-a)$. Hence the entire segment lies in
+the swept volume of the translation. Since the translation is collision-free,
+this segment is obstacle-free. Therefore the final footprint is visible from
+the current center.
+
+For an in-place rotation, the center is fixed. If the target footprint
+$a+R_{\theta'}$ is collision-free, then for every $p\in R_{\theta'}$ and
+$\lambda\in[0,1]$,
+\[
+    a+\lambda p \in a+R_{\theta'} .
+\]
+Thus every point of the target footprint is visible from the center $a$.
+Consequently, every primitive move made by the planner can be certified using
+visible free space.
+
+Second, any path may be represented in a normal form with no two consecutive
+rotation primitives. Indeed, two consecutive in-place rotations occur about the
+same center $a$ and form a single continuous path in the fiber
+$\{a\}\times SO(2)$. Replacing their concatenation by one rotation primitive
+with the same orientation trace preserves the endpoint, swept set, and
+feasibility. Hence it suffices to consider paths that alternate between
+translations and rotations.
+
+Third, consider a maximal straight translation in one RVG layer of the currently
+discovered free space. In a polygonal visibility graph, such a move can end only
+at the goal, at a vertex of a grown obstacle or workspace boundary, or at a
+frontier vertex. The first case terminates successfully. The second case can
+occur only finitely many times, since the workspace, obstacles, robot, and
+resolution $n$ induce only finitely many such graph states, and each state is
+expanded at most once by assumption. In the third case, the endpoint is a
+dynamic frontier vertex. Since we perform Minkowski sums over the polygonal
+visibility graphs, this is equivalent to a point visibility graph, and we will
+thus always reveal new area.
+
+After finitely many such moves, either the goal has been found, or no reachable
+dynamic frontier vertex remains. Suppose, for contradiction, that some
+undiscovered free region in the start component remains reachable. Let
+$\tau$ be a feasible path from the discovered region into that undiscovered
+region, and let $t^\ast$ be the first parameter at which $\tau$ leaves the
+discovered region. Then $\tau(t^\ast)$ lies on a reachable frontier. By
+assumption, this frontier induces a reachable dynamic frontier vertex,
+contradicting the fact that none remain. Hence the entire reachable component
+has been discovered.
+
+Once this component is fully discovered, the online RVG is the same, up to
+irrelevant duplicate vertices and tie-breaking choices, as the RVG that would
+have been constructed if the environment had been known in advance. Since
+$n$ is large enough for the fully known RVG planner to be
+resolution-complete, a graph path from $q_s$ to $q_g$ exists whenever a
+feasible path exists under the same clearance assumptions. Therefore the online
+planner must find and return such a path after finitely many primitive moves.
 
 \bibliographystyle{plain}
 \bibliography{references}
