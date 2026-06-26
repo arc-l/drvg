@@ -91,7 +91,9 @@ void VisibilityGraph<T>::_buildLayers() {
       layer.buildVisibilityGraph(_robot, _border, _obstacles);
       Graph<T> layerGraph;
       layerGraph.addEdges(layer.getEdges());
-      layer.draw("../Results/layer_" + std::to_string(i) + ".png", _border, _obstacles, &layerGraph, false);
+      // Debug-only layer dumps are handled by the dedicated debug entrypoints.
+      // Avoid generating and executing Python plot scripts during normal builds.
+      // layer.draw("../Results/layer_" + std::to_string(i) + ".png", _border, _obstacles, &layerGraph, false);
       OMP_CRITICAL_ {
         _layers[i] = layer;
         _graph.addEdges(layer.getEdges());

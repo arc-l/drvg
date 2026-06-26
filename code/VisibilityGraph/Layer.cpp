@@ -323,8 +323,8 @@ void Layer<T>::_shrinkBorder(const Polygon<T> &border) {
       _shrunkBorderExact = hole;
     }
   }
-  Utils::print("#shrunk borders for layer [", _theta_lb, ", ", _theta_ub, "]: ", _shrunkBorders.size());
-  Utils::print("#_borderHoles for layer [", _theta_lb, ", ", _theta_ub, "]: ", _borderHoles.size());
+  //Utils::print("#shrunk borders for layer [", _theta_lb, ", ", _theta_ub, "]: ", _shrunkBorders.size());
+  //Utils::print("#_borderHoles for layer [", _theta_lb, ", ", _theta_ub, "]: ", _borderHoles.size());
   if (_complementBorder.number_of_holes() == 0 || _shrunkBorders.empty()) {
     _infeasible = true;
     return;
