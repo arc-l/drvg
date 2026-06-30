@@ -1,0 +1,24 @@
+{
+    "files.associations": {
+        "unordered_map": "cpp",
+        "stdexcept": "cpp",
+        "optional": "cpp"
+    },
+    "cmake.buildArgs":
+       [
+       ] 
+    ,
+    "cmake.configureSettings": {
+        "PYTHON_EXECUTABLE": [
+            // "/home/duo/miniforge3/envs/drag/bin/python",
+            // "/Users/duo/miniforge3/envs/rvg/bin/python"
+            "/home/duo/miniforge3/envs/rvg/bin/python"
+        ],
+        "TRACY_ENABLE": "OFF",
+    },
+    "cmake.generator": "Unix Makefiles", 
+    "cmake.buildDirectory": "${workspaceFolder}/cmake-build-${buildType}-vscode",
+    "C_Cpp.clang_format_fallbackStyle": "Google",
+    "output.smartScroll.enabled": false,
+    "python.analysis.typeCheckingMode": "standard",
+}

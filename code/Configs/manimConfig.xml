@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<root>
+    <environment>
+        <robot>
+            <Polygon isObs="false">
+                <Vertex x="0" y="0"/>
+                <Vertex x="0.5" y="0"/>
+                <Vertex x="0.5" y="1"/>
+                <Vertex x="0" y="1"/>
+            </Polygon>
+        </robot>
+        <useBoundary>0</useBoundary>
+        <obstacles>
+            <Polygon isObs="true">
+                <Vertex x="-0.75" y="-0.75"/>
+                <Vertex x="0.75" y="-0.75"/>
+                <Vertex x="0.75" y="0.75"/>
+                <Vertex x="-0.75" y="0.75"/>
+            </Polygon>
+        </obstacles>
+        <mapSize>20</mapSize>
+    </environment>
+    <plannerSettings>
+        <start>
+            <Vertex x="-2" y="0" theta="0" thetaLb="0" thetaUb="6.28"/>
+        </start>
+        <goal>
+            <Vertex x="2" y="0" theta="0.78" thetaLb="0" thetaUb="6.28"/>
+        </goal>
+    </plannerSettings>
+</root>
